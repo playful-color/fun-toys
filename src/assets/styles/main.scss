@@ -1,0 +1,152 @@
+@use './variables' as vars;
+@use './mixins' as *; // mixins は as * で名前空間なしで使う
+@import url('https://fonts.googleapis.com/css2?family=Yomogi&display=swap');
+
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+body {
+  margin: 0;
+  font-family: "Yomogi", cursive;
+  font-weight: bold;
+  color: vars.$fc_main;
+  background-image: linear-gradient(#fdf6eecf, #fdf6eecf),url("@/assets/images/common/noise.png");
+  background-repeat: repeat;
+  background-size: 100px;
+  @include sp {
+    font-size: vw(14);
+    line-height: 2;
+  }
+  &.stop {
+    overflow: hidden;
+  }
+}
+a {
+  @include link-style;
+}
+
+/* main.scss */
+
+/* 画面全体を占める */
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.noscroll {
+  overflow: hidden;
+  touch-action: none; /* タッチ操作でのスクロール禁止 */
+  position: fixed;    /* 背景が動かないように固定 */
+  width: 100%;
+  height: 100%;
+}
+
+/* ルートコンテナも full height */
+#app {
+  display: flex;
+  flex-direction: column;
+}
+header {
+  height: 100px; /* 固定 */
+  flex-shrink: 0;
+}
+/* App.vue の main 部分 */
+.app-main {
+  flex: 1 1 auto;      /* ヘッダーを除いた残り領域を占める */
+  display: flex;     /* 中身を縦横に伸ばせるように */
+  /*min-height: 0;  */   /* flex 内で高さが正しく計算されるように */
+  position: relative;
+}
+
+/* canvas を置くコンテナ */
+.canvas-container {
+  flex: 1;           /* 親の main 内で残り全部 */
+  position: relative; /* canvas を absolute で重ねる場合 */
+}
+
+/* canvas を container にフィットさせる */
+.canvas-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;   /* CSS で見た目のサイズを指定 */
+  height: 100%;
+}
+
+
+@include sp {
+  html, body {
+    //min-width: 1280px;
+    min-height: 100%;
+    // overflow-x: auto;
+  }
+  #app {
+  width: 100%;
+}
+}
+
+.cf { @include cf; }
+
+@include pc {
+  .pc { display: block; }
+  .sp { display: none; }
+}
+
+@include sp {
+  .pc { display: none; }
+  .sp { display: block; }
+  svg {
+    width: 100%;
+  }
+}
+
+a {
+ // color: $fc_main;
+  text-decoration: none;
+  transition: .3s;
+}
+
+img {
+  width: 100%;
+  vertical-align: bottom;
+  @include pc {
+    image-rendering: -webkit-optimize-contrast;
+  }
+}
+
+#svg {
+  display: none
+}
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.inner {
+  width: 90%;
+  margin: 0 auto;
+  @include pc {
+    &.narrow {
+      width: 1000px;
+    }
+  }
+
+}
+
+.box_wrap {
+ // @include pc {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+ // }
+}
