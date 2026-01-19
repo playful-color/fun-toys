@@ -10,4 +10,10 @@ export default defineConfig(({ command }) => ({
       '@': path.resolve(__dirname, './src'),
     }
   },
+  build: {
+    outDir: 'dist',  // 出力先
+    rollupOptions: {
+      input: path.resolve(__dirname, 'index.html'),  // 明示的にエントリーポイントを指定
+    },
+  },
 }));
