@@ -4,7 +4,7 @@ import path from 'path'
 
 export default defineConfig(({ command }) => ({
   plugins: [vue()],
-  base: command === 'serve' ? '/' : '/fun-toys/',
+  base: '/fun-toys/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
