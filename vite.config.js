@@ -11,9 +11,9 @@ export default defineConfig(({ command }) => ({
     }
   },
   build: {
-    outDir: 'dist',  // 出力先
+    outDir: 'dist',
     rollupOptions: {
-      input: path.resolve(__dirname, 'index.html'),  // 明示的にエントリーポイントを指定
+      input: path.resolve(__dirname, 'index.html'),
     },
   },
 }));
