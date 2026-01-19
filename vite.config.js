@@ -10,10 +10,4 @@ export default defineConfig(({ command }) => ({
       '@': path.resolve(__dirname, './src'),
     }
   },
-  build: {
-    outDir: 'dist',
-    rollupOptions: {
-      input: path.resolve(__dirname, 'index.html'),
-    },
-  },
 }));
