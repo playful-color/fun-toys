@@ -11,7 +11,7 @@
     :id="`ball-${ball.id}`"
     :class="{ hit: ball.hit }"
     :style="{
-      transform: `translate3d(${ball.x}px, ${ball.y}px, 0) scale(${ball.scale})`,
+      transform: `translate3d(${ball.x}px, ${ball.y}px, 0)`,
       backgroundColor: ball.color
     }"
     @pointerdown="removeBall(ball.id)"
@@ -110,10 +110,8 @@ onMounted(() => {
     height: 60px;
     border-radius: 50%;
     cursor: pointer;
-    transition: transform 0.25s ease, opacity 0.25s ease;
+    transition: opacity 0.25s ease;
     box-shadow: -5px -5px 15px rgba(0, 0, 0, .5) inset;
-    will-change: transform;
-    transform: translateZ(0);
     z-index: 2;
     &.hit {
       opacity: 0;
