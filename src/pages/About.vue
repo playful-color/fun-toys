@@ -2,8 +2,6 @@
   <div
   ref="stageRef"
   class="stage"
-  @pointerdown="onDown"
-  @pointerup="onUp"
 >
   <div
     v-for="ball in balls"
@@ -80,20 +78,13 @@ const getStagePos = (e) => {
 
 onMounted(() => {
   spawnFirstDemoBall()
-  updateFirstDemoBall()
   attachStageEvents(stageRef.value)
 
-  // ゲームループ開始
-  let lastTime = 0
-  function gameLoop(time) {
-    if (time - lastTime > 16) {
-      lastTime = time
-
-      updateBalls()
-      updateFirstDemoBall()
-      updateNormalDemoBalls()
-      checkAndSpawnNormalDemoBall()
-    }
+  function gameLoop() {
+    updateBalls()
+    updateFirstDemoBall()
+    updateNormalDemoBalls()
+    checkAndSpawnNormalDemoBall()
     requestAnimationFrame(gameLoop)
   }
 
