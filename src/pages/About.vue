@@ -67,7 +67,7 @@ const demoPlayed = ref(false)
 const { balls, updateBalls, addBall, throwBall, effects, attachStageEvents, removeBall } = useBalls(messageVisible, playSound, playPon, demoPlayed)
 
 // 2. 次に useDemo を呼び出し、demoPlayed を取得
-const { spawnFirstDemoBall, spawnDemoScatter, updateFirstDemoBall, checkAndSpawnMessageDemoBall } = useDemo(messageVisible, balls, demoPlayed)
+const { spawnFirstDemoBall, spawnDemoScatter, updateFirstDemoBall, checkAndSpawnMessageDemoBall, updateNormalDemoBalls, checkAndSpawnNormalDemoBall } = useDemo(messageVisible, balls, demoPlayed)
 
 const stageRef = ref(null)
 const getStagePos = (e) => {
@@ -86,10 +86,13 @@ onMounted(() => {
   // ゲームループ開始
   let lastTime = 0
   function gameLoop(time) {
-    if (time - lastTime > 16) {  // 60 FPS
+    if (time - lastTime > 16) {
       lastTime = time
+
       updateBalls()
-      //checkAndSpawnMessageDemoBall()
+      updateFirstDemoBall()
+      updateNormalDemoBalls()
+      checkAndSpawnNormalDemoBall()
     }
     requestAnimationFrame(gameLoop)
   }
@@ -108,7 +111,7 @@ onMounted(() => {
   height: 100%;
   position: relative;
   overflow: hidden;
-  touch-action: manipulation;
+  touch-action: none;
   transition: background-color 0.15s ease;
   .ball {
     position: absolute;
@@ -117,7 +120,9 @@ onMounted(() => {
     border-radius: 50%;
     cursor: pointer;
     transition: transform 0.25s ease, opacity 0.25s ease;
-    box-shadow: -10px -5px 20px rgba(0, 0, 0, .5) inset;
+    box-shadow: -5px -5px 15px rgba(0, 0, 0, .5) inset;
+    will-change: transform;
+    transform: translateZ(0);
     z-index: 2;
     &.hit {
       opacity: 0;
@@ -172,6 +177,7 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     transition: transform 0.15s ease;
+    transform: translateZ(0);
     .icon {
       position: relative;
     }

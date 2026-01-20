@@ -56,9 +56,6 @@ export function usePointer({
       const now = Date.now();
       // 60fpsでの更新を強調
       if (now - lastDragTime > 16) {
-        requestAnimationFrame(() => {
-          
-        });
         lastDragTime = now;
       }
       dragInProgress = true;

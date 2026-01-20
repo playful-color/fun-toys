@@ -115,7 +115,7 @@ export function useDemo(messageVisible, balls) {
         isPastMessage = true;
         if (messageEl) {
           messageEl.classList.add('transparent'); // メッセージを透過させる
-        }
+      }
       }
 
       b.vy = isInsideMessage ? -0.5 : b.y > bottom ? -3 : -3;
@@ -139,11 +139,11 @@ export function useDemo(messageVisible, balls) {
         firstDemoBall.hit = true;
         firstDemoBall = null;
         emptySince = Date.now();
-        requestAnimationFrame(checkAndSpawnNormalDemoBall);
+        //requestAnimationFrame(checkAndSpawnNormalDemoBall);
       }
     }
 
-    requestAnimationFrame(updateFirstDemoBall);
+    //requestAnimationFrame(updateFirstDemoBall);
   };
 
   // 四方八方散布
@@ -246,7 +246,7 @@ export function useDemo(messageVisible, balls) {
     balls.value = balls.value.filter(b => !b.hit);
 
     // 次のフレームでの更新
-    requestAnimationFrame(updateNormalDemoBalls);
+    //requestAnimationFrame(updateNormalDemoBalls);
   };
 
 
@@ -263,16 +263,16 @@ export function useDemo(messageVisible, balls) {
       } else emptySince = null;
     }
 
-    requestAnimationFrame(checkAndSpawnNormalDemoBall);
+    //requestAnimationFrame(checkAndSpawnNormalDemoBall);
   }
 
   // =========================
   // 初期化
   // =========================
-  spawnFirstDemoBall()
-  updateFirstDemoBall()
-  updateNormalDemoBalls()
-  checkAndSpawnNormalDemoBall()
+  //spawnFirstDemoBall()
+  //updateFirstDemoBall()
+  //updateNormalDemoBalls()
+  //checkAndSpawnNormalDemoBall()
 
   return {
     demoPlayed,
