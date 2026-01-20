@@ -118,12 +118,12 @@ export function useDemo(messageVisible, balls) {
       }
       }
 
-      b.vy = isInsideMessage ? -0.5 : b.y > bottom ? -3 : -3;
+      b.vy = isInsideMessage ? -1 : b.y > bottom ? -3 : -3;
       b.vx = 0;
     }
 
-    //b.x = Math.floor(b.x)
-    //b.y = Math.floor(b.y)
+    b.x += b.vx;
+    b.y += b.vy;
 
     // 画面外に出た場合の処理
     if (
@@ -211,8 +211,8 @@ export function useDemo(messageVisible, balls) {
       if (!b.isDemo || b.isFirst) return;
 
       // ボールの位置更新
-      //b.x = Math.floor(b.x)
-      //b.y = Math.floor(b.y)
+      b.x += b.vx;
+      b.y += b.vy;
 
       // PCの動き：左から右
       if (!isMobile) {

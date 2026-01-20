@@ -11,7 +11,7 @@
     :id="`ball-${ball.id}`"
     :class="{ hit: ball.hit }"
     :style="{
-      transform: `translate3d(${ball.x}px, ${ball.y}px, 0)`,
+      transform: `translate3d(${Math.round(ball.x)}px, ${Math.round(ball.y)}px, 0)`,
       backgroundColor: ball.color
     }"
     @pointerdown="removeBall(ball.id)"
