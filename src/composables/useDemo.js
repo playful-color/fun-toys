@@ -122,8 +122,8 @@ export function useDemo(messageVisible, balls) {
       b.vx = 0;
     }
 
-    b.x = Math.floor(b.x)
-    b.y = Math.floor(b.y)
+    //b.x = Math.floor(b.x)
+    //b.y = Math.floor(b.y)
 
     // 画面外に出た場合の処理
     if (
@@ -211,8 +211,8 @@ export function useDemo(messageVisible, balls) {
       if (!b.isDemo || b.isFirst) return;
 
       // ボールの位置更新
-      b.x = Math.floor(b.x)
-      b.y = Math.floor(b.y)
+      //b.x = Math.floor(b.x)
+      //b.y = Math.floor(b.y)
 
       // PCの動き：左から右
       if (!isMobile) {
