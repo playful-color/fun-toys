@@ -153,7 +153,7 @@ onMounted(() => {
       &.transparent {
         opacity: .65;
         color: rgba(51, 51, 51, 0.75);
-        transition: opacity 0.5s ease-in-out;
+        transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
       }
     }
   }

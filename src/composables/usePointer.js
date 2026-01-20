@@ -1,4 +1,3 @@
-// composables/usePointer.js☆
 export function usePointer({
   onTap = () => {},
   onThrow = () => {},

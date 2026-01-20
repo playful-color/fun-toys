@@ -1,7 +1,5 @@
-// useBalls.js☆
 import { ref } from 'vue'
 import { usePointer } from '@/composables/usePointer'
-//import { useSound } from '@/composables/useSound'
 import { useDemo } from '@/composables/useDemo'
 import { BALL_SIZE, colors } from '@/config/balls'
 
@@ -98,18 +96,18 @@ export function useBalls(messageVisible, playSound, playPon, demoPlayed) {
   // メインループでのボール更新処理
   const updateBalls = () => {
     balls.value.forEach(b => {
-      b.x += b.vx  // X座標更新
-      b.y += b.vy  // Y座標更新
+      b.x += b.vx
+      b.y += b.vy
 
       // 投げたボールとターゲットの衝突判定
       if (b.type === 'shot') {
         balls.value.forEach(target => {
           if (target.type === 'target' && !target.hit && hitTest(b, target)) {
-            playPon()  // 音を鳴らす
-            spawnEffect(target.x + BALL_SIZE / 2, target.y + BALL_SIZE / 2)  // エフェクト生成
+            playPon() 
+            spawnEffect(target.x + BALL_SIZE / 2, target.y + BALL_SIZE / 2)
 
-            target.hit = true  // ターゲットボールのヒットフラグを立てる
-            b.hit = true  // 投げたボールのヒットフラグを立てる
+            target.hit = true
+            b.hit = true
 
             // 両方を削除
             removeBall(target.id)
@@ -120,7 +118,7 @@ export function useBalls(messageVisible, playSound, playPon, demoPlayed) {
 
       // 跳ね返り処理（ボールが画面の端に当たったら反発）
       if (b.type === 'target' && !b.isDemo) {
-        const r = BALL_SIZE / 2  // ボールの半径
+        const r = BALL_SIZE / 2
 
         // 左
         if (b.x < 0) {
@@ -148,10 +146,9 @@ export function useBalls(messageVisible, playSound, playPon, demoPlayed) {
 
     // ボールの状態が更新された後、画面外に出たボールや寿命が尽きたボールを削除
     balls.value = balls.value.filter(b => {
-      // hit の寿命管理
       if (b.hit) {
         b.life = (b.life ?? 0) + 1
-        return b.life <= 15  // 15フレーム後にボールを削除
+        return b.life <= 15
       }
 
       // 投げられたボールが画面外に出た場合は削除
@@ -162,7 +159,7 @@ export function useBalls(messageVisible, playSound, playPon, demoPlayed) {
         ) return false
       }
 
-      return true  // その他はそのまま残す
+      return true
     })
   }
 
@@ -178,10 +175,9 @@ export function useBalls(messageVisible, playSound, playPon, demoPlayed) {
   // ポインタの状態を管理する関数
   const { startPointer, movePointer, endPointer } = usePointer({
     onDown: (x, y) => {
-      // 黒ボール以外のボールが画面にあるかチェック
       const normalBallExists = balls.value.some(b => b.type !== 'shot' && !b.hit)
       if (normalBallExists && !skipNextAdd) {
-        playSound()  // ボールがある場合は音を鳴らす
+        playSound()
       }
     },
     onTap: (x, y) => {
@@ -189,9 +185,9 @@ export function useBalls(messageVisible, playSound, playPon, demoPlayed) {
         skipNextAdd = false
         return
       }
-      addBall(x, y)  // タップした場所にボールを追加
+      addBall(x, y)
     },
-    onThrow: throwBall  // 投げる処理
+    onThrow: throwBall
   })
 
   // ステージのイベントリスナーを設定

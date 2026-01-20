@@ -1,4 +1,3 @@
-// composables/useSound.js
 import { ref } from 'vue'
 
 // ドレミ音とポン音の音源をインポート
@@ -35,11 +34,11 @@ export function useSound() {
     // 再生する音源のインデックスをランダムに決定
     let randomIndex
     do {
-      randomIndex = Math.floor(Math.random() * audios.length)  // 0〜audios.length-1のランダムなインデックス
-    } while (randomIndex === lastIndex)  // 直前に再生した音と同じ音を再生しないようにする
+      randomIndex = Math.floor(Math.random() * audios.length)
+    } while (randomIndex === lastIndex)
 
     // 再生する音源を設定
-    lastIndex = randomIndex  // 現在のインデックスをlastIndexとして保存
+    lastIndex = randomIndex
     const s = audios[randomIndex]
     
     // 音を最初から再生するため、currentTimeを0にリセット
@@ -68,16 +67,16 @@ export function useSound() {
     
     // サウンドが無効になった場合、すべての音を一時停止
     if (!soundEnabled.value) {
-      audios.forEach(a => a.pause())  // ドレミ音をすべて一時停止
-      ponAudio.pause()  // "ポン" 音を一時停止
+      audios.forEach(a => a.pause())
+      ponAudio.pause()
     }
   }
 
-  // この関数で返すのは、音の状態や、音を再生するための関数
+
   return {
-    soundEnabled,  // サウンドが有効か無効かの状態を管理
-    playSound,     // ランダムにドレミ音を再生する関数
-    playPon,       // "ポン" の音を再生する関数
-    toggleSound    // サウンドのオン・オフを切り替える関数
+    soundEnabled,
+    playSound,     
+    playPon,       
+    toggleSound    
   }
 }

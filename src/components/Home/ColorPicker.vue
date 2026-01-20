@@ -1,4 +1,3 @@
-//ColorPicker.vue
 <template>
   <div class="color-picker-with-alpha picker-container">
 

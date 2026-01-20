@@ -1,4 +1,3 @@
-//CanvasManager.vue
 <template>
   <div
     class="canvas-container"
@@ -378,7 +377,7 @@ async function saveImage() {
 @use "@/assets/styles/variables" as vars;
 @use "@/assets/styles/mixins" as *;
 .canvas-container {
-  touch-action: none; /* タッチジェスチャーをブラウザに渡さない */
+  touch-action: none;
   -ms-touch-action: none;
   position: relative;
   overflow: hidden; 

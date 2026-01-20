@@ -1,4 +1,3 @@
-//Toolbar.vue
 <template>
   <div class="toolbar">
      

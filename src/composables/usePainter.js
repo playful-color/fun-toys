@@ -1,4 +1,3 @@
-// usePainter.js
 import { ref } from 'vue';
 import { useColorStore } from '@/stores/useColorStore';
 import { usePainterStore } from '@/stores/usePainterStore';

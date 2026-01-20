@@ -2,7 +2,7 @@
   <nav class="nav">
     <!-- ハンバーガー（SP用） -->
     <button class="hamburger" @click="toggleMenu">
-      {{ menuOpen ? '×' : '☰' }}
+      <font-awesome-icon :icon="menuOpen ? 'xmark' : 'bars'" />
     </button>
 
     <!-- ナビ（PC / SP 共通） -->
@@ -55,8 +55,6 @@ function closeMenu() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-
-  /* ========= PC ========= */
   .hamburger {
     display: none;
   }
@@ -78,10 +76,9 @@ function closeMenu() {
   }
 
   .overlay-logo {
-    display: none; // PCではロゴ不要
+    display: none;
   }
 
-  /* ========= SP ========= */
   @include sp {
     .hamburger {
       display: block;
@@ -129,14 +126,16 @@ function closeMenu() {
       margin-top: 40px;
 
       img {
-        width: 160px;
+        width: 54vw;
       }
     }
 
     /* メニュー */
     .nav-links li:not(.overlay-logo) {
       margin-top: 60px;
-      font-size: 20px;
+      font-size: vw(24);
+      width: 100%;
+      text-align: center;
     }
   }
 }

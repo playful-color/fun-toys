@@ -1,4 +1,3 @@
-//Home.vue
 <template>
   <div class="drawing-area">
   <Toolbar

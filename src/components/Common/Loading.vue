@@ -1,6 +1,6 @@
 <template>
   <div>
-  <canvas ref="canvas" class="loading-canvas" :class="{ finished: isFinished }" ></canvas>
+    <canvas ref="canvas" class="loading-canvas" :class="{ finished: isFinished }" ></canvas>
     <div
       v-if="isMessageVisible"
       class="message-to-erase"
@@ -12,67 +12,62 @@
 </template>
 
 <script setup>
+//コード整理、管理分け予定
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 const canvas = ref(null);
 const isFinished = ref(false);
 const isMobile = ref(false);
-let isUserErasing = false;
+const isUserErasing = ref(false);
 
 const emit = defineEmits(['finished']);
 const isMessageVisible = ref(false);
-
 const messagePos = ref({ top: 0, left: 0 });
 
-function showMessageToErase(x, y) {
-  // Canvas 座標 → DOM 座標に変換
-  const rect = canvas.value.getBoundingClientRect();
-  messagePos.value.top = rect.top + y - 100; // 文字の上に表示
-  messagePos.value.left = rect.left + x + 30; // 文字の右に表示
+import crayonBg from '@/assets/images/home/crayon-bg.jpg';
+import eraserCursor from '@/assets/images/home/eraser-cursor.png';
 
+let c, width, height;
+let brush = { radius: 160, swayAngle: 0, sway: 40, x: 0, y: 0 };
+let handleMouseMove = null;
+let eraseAnimId = null;
+
+function showMessageToErase(x, y) {
+  const rect = canvas.value.getBoundingClientRect();
+  messagePos.value.top = rect.top + y - 100;
+  messagePos.value.left = rect.left + x - 30;
   isMessageVisible.value = true;
 
-  setTimeout(() => {
-    isMessageVisible.value = false;
-  }, 500000);
+  setTimeout(() => { isMessageVisible.value = false; }, 3000);
 }
+
 function finishCanvas() {
   isFinished.value = true;
   emit('finished');
 }
 
-let c, width, height;
-let brush = { radius: 160, swayAngle: 0, sway: 40, x: 0, y: 0 };
-let handleMouseMove = null;
+async function drawImageBackground(ctx, width, height, src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.src = src;
+    img.onload = () => {
+      const pattern = ctx.createPattern(img, 'repeat');
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0, 0, width, height);
+      resolve();
+    };
+  });
+}
 
-import crayonBg from '@/assets/images/home/crayon-bg.jpg';
-import eraserNoise from '@/assets/images/home/eraser-noise.png';
-import eraserCursor from '@/assets/images/home/eraser-cursor.png';
-
-onMounted(() => {
+onMounted(async () => {
   isMobile.value = window.matchMedia("(pointer: coarse)").matches;
   c = canvas.value.getContext('2d');
   width = canvas.value.width = window.innerWidth;
   height = canvas.value.height = window.innerHeight;
 
-  // 背景
-  
-  drawImageBackground(
-    c,
-    width,
-    height,
-    crayonBg
-  );
-  function drawImageBackground(ctx, width, height, src) {
-    const img = new Image();
-    img.src = src;
+  // 背景描画（同期）
+  await drawImageBackground(c, width, height, crayonBg);
 
-    img.onload = () => {
-      const pattern = ctx.createPattern(img, "repeat");
-      ctx.fillStyle = pattern;
-      ctx.fillRect(0, 0, width, height);
-    };
-  }
 
   const svgPaths = [
     "m 98.872004,82.161242 c 13.083026,-0.825128 25.977606,0.579178 38.991776,1.392563 28.73441,1.795902 57.58144,1.679071 86.33893,2.785128 8.81305,0.338964 17.69955,-1.030489 26.45871,0 7.50467,0.882903 14.79087,3.179005 22.28101,4.177691 0.60457,0.08061 58.78186,2.785126 27.85127,2.785126",
@@ -94,22 +89,16 @@ onMounted(() => {
     "m 2963.375,150.39685 c 27.9486,19.91523 50.5941,46.30096 77.9835,66.84304 32.5395,24.40461 38.9918,23.68258 38.9918,61.27279",
   ];
 
+
+  // Path オブジェクト化
   const paths = svgPaths.map(d => {
     const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
     p.setAttribute("d", d);
-    return {
-      svgPath: p,
-      length: p.getTotalLength(),
-      progress: 0,
-      speed: 12 + Math.min(p.getTotalLength() / 60, 30) // ← 文字ごとに速度
-    };
+    return { svgPath: p, length: p.getTotalLength(), progress: 0, speed: 12 + Math.min(p.getTotalLength() / 60, 30) };
   });
+
   const isMobileLayout = isMobile.value;
-
-  /* ===== 2行用に分割 ===== */
-  let line1 = [];
-  let line2 = [];
-
+  let line1 = [], line2 = [];
   if (isMobileLayout) {
     const mid = Math.ceil(paths.length / 2);
     line1 = paths.slice(0, mid);
@@ -117,286 +106,180 @@ onMounted(() => {
   } else {
     line1 = paths;
   }
+
   function getBBoxForPaths(pathList) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-
     pathList.forEach(p => {
       const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
       el.setAttribute("d", p.svgPath.getAttribute("d"));
       svg.appendChild(el);
     });
-
     document.body.appendChild(svg);
     const box = svg.getBBox();
     document.body.removeChild(svg);
-
     return box;
   }
 
+  const box1 = getBBoxForPaths(line1);
+  const box2 = line2.length ? getBBoxForPaths(line2) : null;
+  const scale = (width / box1.width) * (isMobileLayout ? 0.65 : 0.5);
+  const centerX = width / 2;
+  const lineGap = isMobileLayout ? box1.height * scale * 0.7 : 0;
 
-
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-
-  svgPaths.forEach(d => {
-    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    p.setAttribute("d", d);
-    svg.appendChild(p);
-  });
-
-  document.body.appendChild(svg);
-  const bbox = svg.getBBox();
-  document.body.removeChild(svg);
-
-  // 全体のバウンディングボックスを計算
-
-
-const box1 = getBBoxForPaths(line1);
-const box2 = line2.length ? getBBoxForPaths(line2) : null;
-
-const scale =
-  (width / box1.width) *
-  (isMobileLayout ? 0.65 : 0.5);
-
-const centerX = width / 2;
-const lineGap = isMobileLayout ? box1.height * scale * 0.7 : 0;
-
-const offsetLine1 = {
-  x: centerX - (box1.x + box1.width / 2) * scale,
-  y: height / 2 - (box1.y + box1.height / 2) * scale - lineGap
-};
-
-const offsetLine2 = box2 ? {
-  x: centerX - (box2.x + box2.width / 2) * scale,
-  y: height / 2 - (box2.y + box2.height / 2) * scale + lineGap
-} : null;
-
-
-  //const offsetX = width / 2 - (bbox.x + bbox.width / 2) * scale;
-  //const offsetY = height / 2 - (bbox.y + bbox.height / 2) * scale;
+  const offsetLine1 = { x: centerX - (box1.x + box1.width/2) * scale, y: height/2 - (box1.y + box1.height/2) * scale - lineGap };
+  const offsetLine2 = box2 ? { x: centerX - (box2.x + box2.width/2) * scale, y: height/2 - (box2.y + box2.height/2) * scale + lineGap } : null;
 
   c.strokeStyle = `rgba(209,179,138,${0.7 + Math.random()*0.3})`;
-  c.lineWidth = 6 + Math.random() * 3;
+  c.lineWidth = 6 + Math.random()*3;
   c.lineCap = "round";
 
   let current = 0;
+  const lastDrawPos = { x: 0, y: 0 };
 
   function drawNext() {
     const target = paths[current];
     c.globalCompositeOperation = "source-over";
 
-let lastDrawPos = { x: 0, y: 0 };
+    function drawSegment() {
+      c.beginPath();
+      const step = 20;
+      for (let i = Math.max(0, target.progress - 60); i <= target.progress; i += step) {
+        const pt = target.svgPath.getPointAtLength(i);
+        const isSecondLine = isMobileLayout && current >= line1.length;
+        const offset = isSecondLine ? offsetLine2 : offsetLine1;
 
-function drawSegment() {
-  c.beginPath();
-  const step = 20;
-  for (let i = Math.max(0, target.progress - 60); i <= target.progress; i += step) {
-    const pt = target.svgPath.getPointAtLength(i);
-    const isSecondLine =
-      isMobileLayout && current >= line1.length;
+        const jitterX = (Math.random() - 0.5) * 1;
+        const jitterY = (Math.random() - 0.5) * 1;
+        const x = pt.x * scale + offset.x + jitterX;
+        const y = pt.y * scale + offset.y + jitterY;
 
-    const offset = isSecondLine
-      ? offsetLine2
-      : offsetLine1;
+        if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
 
-const jitterX = (Math.random() - 0.5) * 1;
-const jitterY = (Math.random() - 0.5) * 1;
-
-const x = pt.x * scale + offset.x + jitterX;
-const y = pt.y * scale + offset.y + jitterY;
-
-    if (i === 0) c.moveTo(x, y);
-    else c.lineTo(x, y);
-
-    // 最終描画位置を保存
-    lastDrawPos.x = x;
-    lastDrawPos.y = y;
-  }
-  c.stroke();
-
-  target.progress += target.speed;
-  if (target.progress < target.length) requestAnimationFrame(drawSegment);
-  else {
-    current++;
-    if (current < paths.length) {
-      setTimeout(() => requestAnimationFrame(drawNext), 60);
-    } else {
-      // 描画終了 → 最後の座標の右上に表示
-// PC・スマホ共通で文字の右上に「消してみてね」を表示
-const msgOffsetX = 30;  // 文字の右側にずらす量
-const msgOffsetY = 100; // 文字の上側にずらす量
-showMessageToErase(lastDrawPos.x + msgOffsetX, lastDrawPos.y - msgOffsetY);
-      startErase();
+        lastDrawPos.x = x; lastDrawPos.y = y;
+      }
+      c.stroke();
+      target.progress += target.speed;
+      if (target.progress < target.length) requestAnimationFrame(drawSegment);
+      else {
+        current++;
+        if (current < paths.length) setTimeout(() => requestAnimationFrame(drawNext), 60);
+        else showMessageToErase(lastDrawPos.x + 30, lastDrawPos.y - 100), startErase();
+      }
     }
-  }
-}
-
     drawSegment();
   }
 
-
-
-const eraserImg = new Image();
-eraserImg.src = eraserNoise;
-
-
-function startErase() {
-  if (!canvas.value) return;
-
-  const eraseScale = isMobile.value ? 0.35 : 1;
-  brush.radius = 160 * eraseScale;
-  brush.sway   = 40  * eraseScale;
-  
-
-  // 消しゴムカーソル
-  
-  canvas.value.style.cursor = `url(${eraserCursor}) 16 16, auto`;
-
-  // 消しゴム描画に切り替え
-  c.globalCompositeOperation = "destination-out";
-  brush.x = 0;
-  brush.y = 0;
-
-  let lastMouse = { x: 0, y: 0, t: Date.now() };
-
-  function getEraseProgress() {
-    const imgData = c.getImageData(0, 0, width, height).data;
-    let total = imgData.length / 4 / 16;
-    let count = 0;
-    for (let i = 0; i < imgData.length; i += 4*16) {
-      if (imgData[i+3] < 50) count++;
-    }
-    return count / total;
-  }
-
-  // マウスで消す処理
-  handleMouseMove = (e) => {
+  function startErase() {
     if (!canvas.value) return;
 
-    const now = Date.now();
-    const dt = now - lastMouse.t || 16;
-    const dx = e.clientX - lastMouse.x;
-    const dy = e.clientY - lastMouse.y;
-    const speed = Math.sqrt(dx*dx + dy*dy) / dt;
+    const eraseScale = isMobile.value ? 0.35 : 1;
+    brush.radius = 160 * eraseScale;
+    brush.sway = 40 * eraseScale;
+    canvas.value.style.cursor = `url(${eraserCursor}) 16 16, auto`;
+    c.globalCompositeOperation = "destination-out";
 
-    // ベースのブラシサイズを速度で変化
-    let baseRadius = brush.radius + 30*(1 - Math.min(speed*10,1));
+    let lastMouse = { x: 0, y: 0, t: Date.now() };
 
-    // 1フレームで複数スタンプ
-    for (let i = 0; i < 3; i++) {
-      const offsetX = (Math.random() - 0.5) * 20;
-      const offsetY = (Math.random() - 0.5) * 20;
-
-      const radius = baseRadius * (0.7 + Math.random() * 0.6);
-      const rx = radius * (0.8 + Math.random() * 0.4);
-      const ry = radius * (0.6 + Math.random() * 0.5);
-
-      const grad = c.createRadialGradient(
-        e.clientX + offsetX, e.clientY + offsetY, 0,
-        e.clientX + offsetX, e.clientY + offsetY, radius
-      );
-      grad.addColorStop(0, "rgba(0,0,0,1)");      // 中心は完全に消す
-      grad.addColorStop(1, "rgba(0,0,0,0)");      // 外側でフェードアウト
-
-      c.fillStyle = grad;
-      c.beginPath();
-      c.ellipse(e.clientX + offsetX, e.clientY + offsetY, rx, ry, 0, 0, Math.PI*2);
-      c.fill();
+    function getEraseProgress() {
+      const imgData = c.getImageData(0,0,width,height).data;
+      let total = imgData.length/4/16, count=0;
+      for (let i=0;i<imgData.length;i+=4*16) if(imgData[i+3]<50) count++;
+      return count/total;
     }
 
-    lastMouse = { x: e.clientX, y: e.clientY, t: now };
-  };
+    handleMouseMove = (e) => {
+      if(!canvas.value) return;
+      const now = Date.now();
+      const dt = now - lastMouse.t || 16;
+      const dx = e.clientX - lastMouse.x;
+      const dy = e.clientY - lastMouse.y;
+      const speed = Math.sqrt(dx*dx+dy*dy)/dt;
+      let baseRadius = brush.radius + 30*(1-Math.min(speed*10,1));
 
-  canvas.value.addEventListener("mousemove", handleMouseMove);
+      for(let i=0;i<3;i++){
+        const offsetX=(Math.random()-0.5)*20;
+        const offsetY=(Math.random()-0.5)*20;
+        const radius=baseRadius*(0.7+Math.random()*0.6);
+        const rx=radius*(0.8+Math.random()*0.4);
+        const ry=radius*(0.6+Math.random()*0.5);
+        const grad=c.createRadialGradient(e.clientX+offsetX,e.clientY+offsetY,0,e.clientX+offsetX,e.clientY+offsetY,radius);
+        grad.addColorStop(0,"rgba(0,0,0,1)");
+        grad.addColorStop(1,"rgba(0,0,0,0)");
+        c.fillStyle=grad;
+        c.beginPath();
+        c.ellipse(e.clientX+offsetX,e.clientY+offsetY,rx,ry,0,0,Math.PI*2);
+        c.fill();
+      }
+      lastMouse={x:e.clientX,y:e.clientY,t:now};
+    };
 
-    function handleTouchStart() {
-    if (!isMobile.value) return;
-    isUserErasing = true;
-  }
+    canvas.value.addEventListener("mousemove", handleMouseMove);
 
-  function handleTouchEnd() {
-    if (!isMobile.value) return;
-    isUserErasing = false;
-  }
+    // タッチイベント
+    if(isMobile.value){
+      function handleTouchStart(){ isUserErasing.value=true; }
+      function handleTouchEnd(){ isUserErasing.value=false; }
+      function handleTouchMove(e){ handleMouseMove({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY}); }
 
-  function handleTouchMove(e) {
-    if (!isMobile.value) return;
-    const t = e.touches[0];
-    handleMouseMove({
-      clientX: t.clientX,
-      clientY: t.clientY
-    });
-  }
+      canvas.value.addEventListener("touchstart",handleTouchStart,{passive:true});
+      canvas.value.addEventListener("touchend",handleTouchEnd,{passive:true});
+      canvas.value.addEventListener("touchcancel",handleTouchEnd,{passive:true});
+      canvas.value.addEventListener("touchmove",handleTouchMove,{passive:true});
 
-  canvas.value.addEventListener("touchstart", handleTouchStart, { passive: true });
-  canvas.value.addEventListener("touchend", handleTouchEnd, { passive: true });
-  canvas.value.addEventListener("touchcancel", handleTouchEnd, { passive: true });
-  canvas.value.addEventListener("touchmove", handleTouchMove, { passive: true });
-
-  // 自動消しゴムアニメーション
-  const autoErase = () => {
-  // ランダム方向に動かす
-  const angle = Math.random() * Math.PI * 2;
-  const dist = isMobile.value ? 20 + Math.random() * 20 : 30 + Math.random() * 30;
-  brush.x = Math.max(0, Math.min(width, brush.x + Math.cos(angle) * dist));
-  brush.y = Math.max(0, Math.min(height, brush.y + Math.sin(angle) * dist));
-
-  brush.swayAngle += 0.5;
-  const sway = Math.sin(brush.swayAngle) * brush.sway;
-
-  // 1フレームに複数の小さい消しゴムを重ねる
-  for (let i = 0; i < 3; i++) {
-    const offsetX = (Math.random() - 0.5) * 20; // ランダム位置
-    const offsetY = (Math.random() - 0.5) * 20;
-
-    const radius = brush.radius * (0.7 + Math.random() * 0.6); // ランダムサイズ
-    const rx = radius * (0.8 + Math.random() * 0.4);
-    const ry = radius * (0.6 + Math.random() * 0.5);
-
-    const grad = c.createRadialGradient(
-      brush.x + sway + offsetX, brush.y + offsetY, 0,
-      brush.x + sway + offsetX, brush.y + offsetY, radius
-    );
-
-    // グラデーションを多段化して自然に
-    grad.addColorStop(0, "rgba(0,0,0,1)");      // 中心は完全に消す
-    grad.addColorStop(1, "rgba(0,0,0,0)");      // 外側でフェードアウト
-
-    c.fillStyle = grad;
-    c.beginPath();
-    c.ellipse(brush.x + sway + offsetX, brush.y + offsetY, rx, ry, 0, 0, Math.PI * 2);
-    c.fill();
-  }
-};
-
-
-  const interval = setInterval(() => {
-    if (!canvas.value) {
-      clearInterval(interval);
-      return;
+      onBeforeUnmount(()=>{
+        canvas.value.removeEventListener("touchstart",handleTouchStart);
+        canvas.value.removeEventListener("touchend",handleTouchEnd);
+        canvas.value.removeEventListener("touchcancel",handleTouchEnd);
+        canvas.value.removeEventListener("touchmove",handleTouchMove);
+      });
     }
 
-    if (!(isMobile.value && isUserErasing)) {
-      autoErase();
+    function autoErase() {
+      const angle=Math.random()*Math.PI*2;
+      const dist = isMobile.value?20+Math.random()*20:30+Math.random()*30;
+      brush.x = Math.max(0,Math.min(width,brush.x+Math.cos(angle)*dist));
+      brush.y = Math.max(0,Math.min(height,brush.y+Math.sin(angle)*dist));
+      brush.swayAngle += 0.5;
+      const sway=Math.sin(brush.swayAngle)*brush.sway;
+
+      for(let i=0;i<3;i++){
+        const offsetX=(Math.random()-0.5)*20;
+        const offsetY=(Math.random()-0.5)*20;
+        const radius=brush.radius*(0.7+Math.random()*0.6);
+        const rx=radius*(0.8+Math.random()*0.4);
+        const ry=radius*(0.6+Math.random()*0.5);
+        const grad=c.createRadialGradient(brush.x+sway+offsetX,brush.y+offsetY,0,brush.x+sway+offsetX,brush.y+offsetY,radius);
+        grad.addColorStop(0,"rgba(0,0,0,1)");
+        grad.addColorStop(1,"rgba(0,0,0,0)");
+        c.fillStyle=grad;
+        c.beginPath();
+        c.ellipse(brush.x+sway+offsetX,brush.y+offsetY,rx,ry,0,0,Math.PI*2);
+        c.fill();
+      }
     }
 
-    if (getEraseProgress() >= 0.9) {
-      clearInterval(interval);
-      finishCanvas(); // 完了フラグを true に
+    function eraseLoop() {
+      if(!canvas.value) return;
+      if(!(isMobile.value && isUserErasing.value)) autoErase();
+      if(getEraseProgress()>=0.9){ finishCanvas(); return; }
+      eraseAnimId = requestAnimationFrame(eraseLoop);
     }
-  }, 16);
-}
+    eraseAnimId = requestAnimationFrame(eraseLoop);
+  }
+
   drawNext();
 });
 
 onBeforeUnmount(() => {
-  if (canvas.value && handleMouseMove) {
-    canvas.value.removeEventListener("mousemove", handleMouseMove);
-  }
+  if(canvas.value && handleMouseMove) canvas.value.removeEventListener("mousemove",handleMouseMove);
+  if(eraseAnimId) cancelAnimationFrame(eraseAnimId);
 });
 </script>
 
 
-<style scoped>
+<style lang="scss" scoped>
+@use "@/assets/styles/variables" as vars;
+@use "@/assets/styles/mixins" as *; // mixins は as * で使う
 .loading-canvas {
   position: fixed;
   top: 0;
@@ -405,13 +288,13 @@ onBeforeUnmount(() => {
   height: 100%;
   z-index: 9998;
   transition: opacity 0.5s;
+  &.finished {
+    opacity: 0;
+    pointer-events: none;
+    z-index: -1;
+  }
 }
 
-.loading-canvas.finished {
-  opacity: 0;
-  pointer-events: none;
-  z-index: -1;
-}
 .message-to-erase {
   position: fixed;
   background-color: rgba(0,0,0,0.8);
@@ -424,21 +307,24 @@ onBeforeUnmount(() => {
   z-index: 99999;
   white-space: pre-line;
   animation: fadeOut 2s ease-in-out forwards;
-
-  /* 吹き出しごと斜めにする */
-  transform: rotate(45deg); /* -15度傾ける例 */
-  transform-origin: left top; /* 回転の基点を左上に */
-}
-.message-to-erase::after {
+  transform: rotate(45deg);
+  transform-origin: left top;
+  &::after {
   content: "";
-  position: absolute;
-  bottom: -10px;  /* 吹き出しの三角 */
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 10px 10px 0 10px;
-  border-style: solid;
-  border-color: rgba(0,0,0,0.8) transparent transparent transparent;
+    position: absolute;
+    bottom: -10px;  /* 吹き出しの三角 */
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 10px 10px 0 10px;
+    border-style: solid;
+    border-color: rgba(0,0,0,0.8) transparent transparent transparent;
+  }
+  @include sp {
+    width: 25vw;
+    font-size: vw(16);
+  }
 }
+
 @keyframes fadeOut {
   0% { opacity: 1; transform: rotate(45deg); }
   100% { opacity: 0; transform: rotate(45deg) translateY(-10px); }
