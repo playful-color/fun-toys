@@ -17,6 +17,7 @@ export function useBalls(messageVisible, playSound, playPon, demoPlayed) {
 
   // ボールの生成関数（通常のボールを追加）
   const addBall = (x, y) => {
+    playSound()
     while (balls.value.length >= MAX_BALLS) balls.value.shift()  // 最大数を超える場合、古いボールを削除
 
     // ランダムな角度と速度でボールを追加
@@ -177,7 +178,6 @@ export function useBalls(messageVisible, playSound, playPon, demoPlayed) {
     onDown: (x, y) => {
       const normalBallExists = balls.value.some(b => b.type !== 'shot' && !b.hit)
       if (normalBallExists && !skipNextAdd) {
-        playSound()
       }
     },
     onTap: (x, y) => {

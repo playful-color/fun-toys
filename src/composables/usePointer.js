@@ -75,8 +75,14 @@ export function usePointer({
     const distance = Math.hypot(dx, dy)
     const time = Date.now() - state.startTime
 
-    if (distance < tapDistanceThreshold && time < tapTimeThreshold ) {
-      onTap?.(state.startX, state.startY)
+    if (distance < tapDistanceThreshold && time < tapTimeThreshold) {
+      const OFFSET_RANGE = 16 // 好きな値でOK（px）
+      const offsetX = (Math.random() - 0.5) * OFFSET_RANGE
+      const offsetY = (Math.random() - 0.5) * OFFSET_RANGE
+      onTap?.(
+        state.startX + offsetX,
+        state.startY + offsetY
+      )
     } else if (distance > throwDistanceThreshold ) {
       onThrow?.(state.startX, state.startY, dx, dy)
     }
