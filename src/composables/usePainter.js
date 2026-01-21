@@ -43,11 +43,10 @@ function getEventPos(e) {
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-const offsetX = 0;   // 左右ずらしたい場合はここを調整
-const offsetY = -20; // 上にずらしたい場合は負の値
+
 return {
-  x: (clientX - rect.left + offsetX) / s,
-  y: (clientY - rect.top + offsetY) / s
+  x: (clientX - rect.left) / s,
+  y: (clientY - rect.top) / s
 };
 }
 

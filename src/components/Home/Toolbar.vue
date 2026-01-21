@@ -1,28 +1,14 @@
 <template>
   <div class="toolbar">
-     
-         <!-- スマホ用：開閉ボタン -->
 
-    <button v-if="isMobile" class="toolbar-toggle" @click="showToolbar = !showToolbar">
-      <p><font-awesome-icon icon="palette" /></p>
-      <!--<font-awesome-icon :icon="showToolbar ? 'chevron-up' : 'chevron-down'" />-->
-    </button>
-
-    <div v-show="!isMobile || showToolbar" class="toolbar-inner" :class="{ show: showToolbar }">
-
-      <!-- ツールやサイズ調整ボタンなどここにまとめる -->
+    <div class="toolbar-inner show">
       <div
         class="color_wraper"
         v-show="showColorPicker"
         :style="pickerStyle"
       >
-
-     <!-- ツールバーコンポーネント (Toolbar.vue) -->
-      <ColorPicker />
-
+        <ColorPicker />
       </div>
-
-    <!-- ブラシ・消しゴム切り替えボタン（PCはアイコン＋ラベル、スマホは丸アイコンのみ） -->
    
       <button ref="brushBtn" @click="onBrushClick" class="brush-btn">
         <font-awesome-icon icon="paintbrush" :style="{ color: brushIconColor }" />
@@ -34,79 +20,76 @@
       </button>
     
 
-    <!-- 以下、サイズ調整や他のボタンはそのまま -->
+      <input v-if="!isMobile && !localIsEraser" type="range" v-model.number="localBrushSize" min="5" max="100" />
 
-    <!-- PC：スライダー -->
-    <input v-if="!isMobile && !localIsEraser" type="range" v-model.number="localBrushSize" min="5" max="100" />
+    
+      <div v-if="isMobile && !isEraser" class="size-control">
+        <button @click="changeSize(5)">
+          <font-awesome-icon icon="plus" />
+        </button>
+        <div
+          class="size-indicator"
+          :style="{
+            width: localBrushSize * 0.6 + 'px',
+            height: localBrushSize * 0.6 + 'px',
+            lineHeight: localBrushSize * 0.6 + 'px',
+            fontSize: Math.max(12, localBrushSize * 0.2) + 'px',
+            backgroundColor: `rgba(${selectedColor.r}, ${selectedColor.g}, ${selectedColor.b}, ${selectedColor.a})`,
+            color: '#fff',
+            textAlign: 'center',
+            borderRadius: '50%'
+          }"
+        >
+          {{ localBrushSize }}
+        </div>
 
-    <!-- スマホ：＋ − ボタン -->
-    <div v-if="isMobile && !isEraser" class="size-control">
-      <button @click="changeSize(5)">
-        <font-awesome-icon icon="plus" />
-      </button>
-      <div
-  class="size-indicator"
-  :style="{
-    width: localBrushSize * 0.6 + 'px',
-    height: localBrushSize * 0.6 + 'px',
-    lineHeight: localBrushSize * 0.6 + 'px',
-    fontSize: Math.max(12, localBrushSize * 0.2) + 'px',
-    backgroundColor: `rgba(${selectedColor.r}, ${selectedColor.g}, ${selectedColor.b}, ${selectedColor.a})`,
-    color: '#fff',
-    textAlign: 'center',
-    borderRadius: '50%'
-  }"
->
-  {{ localBrushSize }}
-</div>
-
-      <button @click="changeSize(-5)">
-        <font-awesome-icon icon="minus" />
-      </button>
-    </div>
-
-    <input v-if="!isMobile && localIsEraser" type="range" v-model.number="localEraserSize" min="5" max="100" />
-
-    <div v-if="isMobile && isEraser" class="size-control">
-      <button @click="changeSize(5)">＋</button>
-      <div
-        class="size-indicator"
-        :style="{
-          width: eraserSize * 0.6 + 'px',
-          height: eraserSize * 0.6 + 'px',
-          lineHeight: eraserSize * 0.6 + 'px',
-          borderRadius: '50%',
-          textAlign: 'center',
-          backgroundColor: 'lightgray',
-          fontSize: Math.max(12, brushSize * 0.2) + 'px'
-        }"
-      >
-        {{ eraserSize }}
+        <button @click="changeSize(-5)">
+          <font-awesome-icon icon="minus" />
+        </button>
       </div>
-      <button @click="changeSize(-5)">−</button>
+
+      <input v-if="!isMobile && localIsEraser" type="range" v-model.number="localEraserSize" min="5" max="100" />
+
+      <div v-if="isMobile && isEraser" class="size-control">
+        <button @click="changeSize(5)">＋</button>
+        <div
+          class="size-indicator"
+          :style="{
+            width: eraserSize * 0.6 + 'px',
+            height: eraserSize * 0.6 + 'px',
+            lineHeight: eraserSize * 0.6 + 'px',
+            borderRadius: '50%',
+            textAlign: 'center',
+            backgroundColor: 'lightgray',
+            fontSize: Math.max(12, brushSize * 0.2) + 'px'
+          }"
+        >
+          {{ eraserSize }}
+        </div>
+        <button @click="changeSize(-5)">−</button>
+      </div>
+
+      <button @click="props.undo">
+        <font-awesome-icon icon="undo" />
+        <span class="label">ひとつもどる</span>
+      </button>
+      <button @click="props.redo">
+        <font-awesome-icon icon="redo" />
+        <span class="label">つぎへ</span>
+      </button>
+      <button @click="props.saveImage()">
+        <font-awesome-icon icon="download" />
+        <span class="label">ほぞん</span>
+      </button>
+      <button
+          @touchstart.prevent="emit('randomCharacter')"
+          @click.prevent="emit('randomCharacter')"
+        >
+        <font-awesome-icon icon="dice" />
+        <span class="label">ランダムきりかえ</span>
+      </button>
+
     </div>
-
-    <button @click="props.undo">
-      <font-awesome-icon icon="undo" />
-      <span class="label">ひとつもどる</span>
-    </button>
-    <button @click="props.redo">
-      <font-awesome-icon icon="redo" />
-      <span class="label">つぎへ</span>
-    </button>
-    <button @click="props.saveImage()">
-      <font-awesome-icon icon="download" />
-      <span class="label">ほぞん</span>
-    </button>
-     <button
-        @touchstart.prevent="emit('randomCharacter')"
-        @click.prevent="emit('randomCharacter')"
-      >
-      <font-awesome-icon icon="dice" />
-      <span class="label">ランダムきりかえ</span>
-    </button>
-
-  </div>
   </div>
 </template>
 
@@ -118,12 +101,10 @@ import { usePainterStore } from '@/stores/usePainterStore';
 import { storeToRefs } from 'pinia';
 
 const painterStore = usePainterStore();
-const colorStore = useColorStore(); // Pinia ストアから色を管理
+const colorStore = useColorStore();
 const { selectedColor } = storeToRefs(colorStore); 
-const showToolbar = ref(false);
 
 // カラーピッカーの表示/非表示状態
-
 function onBrushClick() {
   if (localIsEraser.value) localIsEraser.value = false;
 
@@ -260,33 +241,29 @@ function changeSize(delta) {
   }
   @include sp {
     width: 10vw;
+    height: calc(100% - 50vw);
     position: fixed;
     top: 20vw;
     left: 0;
     transform: none;
     flex-direction: column;
     padding: 0;
-    backdrop-filter: blur(6px); 
-    .toolbar-toggle {
-      margin-bottom: 2vw;
-      padding: 3vw 0 0;
-      border: none;
-      background: none;
-      p {
-        font-size: vw(18);
-        display: inline-flex;
-        transition: transform 0.35s ease;
-        transform-origin: center;
-      }
-    }
+    backdrop-filter: blur(6px);
     .toolbar-inner {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 1000;
       gap: 0;
       padding: 0;
       border-radius: 4px;
       button {
-        font-size: vw(18);
-        width: 10vw;
-        height: 14vw;
+        font-size: vw(24);
+        min-width: vw(44);
+        min-height: vw(44);
         .label {
           display: none;
         }
@@ -305,9 +282,7 @@ function changeSize(delta) {
         }
       }
       &.show {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        justify-content: space-evenly;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.1), inset 0 0 10px 5px rgb(255, 255, 255);
       }
     }

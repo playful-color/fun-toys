@@ -19,6 +19,7 @@
 </template>
 
 <script setup>
+//管理分け予定
 import { ref, computed, watch, onMounted, defineExpose } from 'vue';
 import { usePainter } from '@/composables/usePainter';
 
@@ -236,28 +237,37 @@ import spC from '@/assets/images/home/01/2026_01c_sp.png'
 const pcImages = [pcA, pcB, pcC]
 const spImages = [spA, spB, spC]
 
+function getStorageKey() {
+  return isMobile.value
+    ? 'currentCharacterSrc_sp'
+    : 'currentCharacterSrc_pc';
+}
+
 function getRandomCharacterSrc() {
-  // ランダムにキャラクター画像を選択
   const images = isMobile.value ? spImages : pcImages;
-  const savedSrc = localStorage.getItem('currentCharacterSrc');
+  const key = getStorageKey();
+  const savedSrc = localStorage.getItem(key);
   let newSrc;
 
   do {
     newSrc = images[Math.floor(Math.random() * images.length)];
-  } while (newSrc === savedSrc);  // 前回と同じ画像が選ばれないようにする
+  } while (newSrc === savedSrc && images.length > 1);
 
-  localStorage.setItem('currentCharacterSrc', newSrc);
+  localStorage.setItem(key, newSrc);
   return newSrc;
 }
 
 function loadRandomCharacterOnce() {
-  // 初回にランダムなキャラクターを読み込む
-  const savedSrc = localStorage.getItem('currentCharacterSrc');
-  if (savedSrc) return savedSrc;
-
   const images = isMobile.value ? spImages : pcImages;
+  const key = getStorageKey();
+  const savedSrc = localStorage.getItem(key);
+
+  if (savedSrc && images.includes(savedSrc)) {
+    return savedSrc;
+  }
+
   const randomSrc = images[Math.floor(Math.random() * images.length)];
-  localStorage.setItem('currentCharacterSrc', randomSrc);
+  localStorage.setItem(key, randomSrc);
   return randomSrc;
 }
 
@@ -279,6 +289,23 @@ function changeRandomCharacter() {
     if (typeof resetPaint === 'function') resetPaint();  // 描画状態のリセット
     updateBrushCursor();  // カーソル更新
   };
+}
+function getCurrentImageType() {
+  if (!props.characters.length) return null;
+  const src = props.characters[0].img.src;
+
+  if (pcImages.includes(src)) return 'pc';
+  if (spImages.includes(src)) return 'sp';
+
+  return null;
+}
+function ensureCharacterMatchesDevice() {
+  const currentType = getCurrentImageType();
+  const shouldBe = isMobile.value ? 'sp' : 'pc';
+
+  if (currentType && currentType !== shouldBe) {
+    changeRandomCharacter();
+  }
 }
 
 // -----------------------
@@ -346,6 +373,18 @@ onMounted(() => {
   el.addEventListener('touchend', handleTouchEnd, { passive: false });
   el.addEventListener('touchcancel', handleTouchEnd, { passive: false });
   clampPan(); 
+  const onResize = () => {
+  const wasMobile = isMobile.value;
+  isMobile.value = window.innerWidth <= 768;
+
+  // PC/SP が切り替わったときだけチェック
+  if (wasMobile !== isMobile.value) {
+    ensureCharacterMatchesDevice();
+  }
+};
+
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', onResize);
 });
 
 // -----------------------
