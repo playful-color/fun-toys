@@ -119,6 +119,23 @@ img {
     image-rendering: -webkit-optimize-contrast;
   }
 }
+button {
+  -webkit-appearance: none;
+  appearance: none;
+
+  background-color: transparent;
+  border: none;
+
+  outline: none;
+  box-shadow: none;
+
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  &:focus,&:active {
+    background-color: transparent;
+  }
+}
+
 svg[data-icon] {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;

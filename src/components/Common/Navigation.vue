@@ -86,7 +86,6 @@ function closeMenu() {
       top: 15px;
       right: 15px;
       font-size: 28px;
-      background: none;
       border: none;
       cursor: pointer;
       z-index: 1200;
