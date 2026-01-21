@@ -103,57 +103,66 @@ const drawCanvas = () => {
 }
 
 // Canvas タップ
-let pointerState = null
+const pointerStates = new Map()
 
 const onCanvasPointerDown = (e) => {
-  e.preventDefault()
   const rect = canvasRef.value.getBoundingClientRect()
   const x = e.clientX - rect.left
   const y = e.clientY - rect.top
 
-  pointerState = { startX: x, startY: y, startTime: Date.now() }
+  pointerStates.set(e.pointerId, {
+    startX: x,
+    startY: y,
+    startTime: Date.now()
+  })
 }
 
 const onCanvasPointerUp = (e) => {
-  if (!pointerState) return
+  const state = pointerStates.get(e.pointerId)
+  if (!state) return
+
   const rect = canvasRef.value.getBoundingClientRect()
   const x = e.clientX - rect.left
   const y = e.clientY - rect.top
 
-  const dx = x - pointerState.startX
-  const dy = y - pointerState.startY
+  const dx = x - state.startX
+  const dy = y - state.startY
   const distance = Math.hypot(dx, dy)
-  const time = Date.now() - pointerState.startTime
+  const time = Date.now() - state.startTime
 
   let hitBall = false
 
-  // ボールに当たったら削除＆エフェクト
   balls.value.forEach(ball => {
     const cx = ball.x + BALL_SIZE / 2
     const cy = ball.y + BALL_SIZE / 2
-
     if (Math.hypot(cx - x, cy - y) < BALL_SIZE / 2) {
       removeBall(ball.id)
-      hitBall = true
       playPon()
-      effects.value.push({ x: cx, y: cy, radius: 10, alpha: 1, color: '#ffffff' })
+      effects.value.push({
+        x: cx,
+        y: cy,
+        radius: 10,
+        alpha: 1,
+        color: '#fff'
+      })
+      hitBall = true
     }
   })
 
   if (!hitBall) {
     if (distance < 20 && time < 300) {
-      // タップ → 新しいボール
-      const OFFSET_RANGE = 50
-      const offsetX = (Math.random() - 0.5) * OFFSET_RANGE * 2
-      const offsetY = (Math.random() - 0.5) * OFFSET_RANGE * 2
-      addBall(x + offsetX, y + offsetY)
+      // 連打しやすいように大きくずらす
+      const OFFSET = 80
+      addBall(
+        x + (Math.random() - 0.5) * OFFSET,
+        y + (Math.random() - 0.5) * OFFSET
+      )
     } else if (distance > 40) {
-      // スワイプ → 投げる
-      throwBall(pointerState.startX, pointerState.startY, dx, dy)
+      throwBall(state.startX, state.startY, dx, dy)
     }
   }
 
-  pointerState = null
+  pointerStates.delete(e.pointerId)
 }
 
 
@@ -181,7 +190,7 @@ onMounted(() => {
   // Canvas イベント
   canvas.addEventListener('pointerdown', onCanvasPointerDown)
   canvas.addEventListener('pointerup', onCanvasPointerUp)
-  
+
   // ゲームループ
   const gameLoop = () => {
     updateBalls()

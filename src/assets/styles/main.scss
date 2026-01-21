@@ -121,6 +121,7 @@ img {
 }
 svg[data-icon] {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 #svg {
   display: none
