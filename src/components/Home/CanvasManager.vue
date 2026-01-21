@@ -296,6 +296,10 @@ onMounted(() => {
   paintCanvas.value.width = width;  // 塗りつぶし用キャンバスの設定
   paintCanvas.value.height = height;  // 塗りつぶし用キャンバスの設定
 
+  lineCanvas.value.style.width = `${width}px`;
+  lineCanvas.value.style.height = `${height}px`;
+  paintCanvas.value.style.width = `${width}px`;
+  paintCanvas.value.style.height = `${height}px`;
   updateBrushCursor();  // カーソルを初期化
 
   const painter = usePainter({  // 描画関連のカスタムフックを利用

@@ -32,8 +32,6 @@ a {
   @include link-style;
 }
 
-/* main.scss */
-
 /* 画面全体を占める */
 html,
 body,
@@ -45,33 +43,31 @@ body,
 
 .noscroll {
   overflow: hidden;
-  touch-action: none; /* タッチ操作でのスクロール禁止 */
-  position: fixed;    /* 背景が動かないように固定 */
+  touch-action: none;
+  position: fixed;
   width: 100%;
   height: 100%;
 }
 
-/* ルートコンテナも full height */
 #app {
   display: flex;
   flex-direction: column;
 }
 header {
-  height: 100px; /* 固定 */
+  height: 100px;
   flex-shrink: 0;
 }
-/* App.vue の main 部分 */
+
 .app-main {
-  flex: 1 1 auto;      /* ヘッダーを除いた残り領域を占める */
-  display: flex;     /* 中身を縦横に伸ばせるように */
-  /*min-height: 0;  */   /* flex 内で高さが正しく計算されるように */
+  flex: 1 1 auto;
+  display: flex; 
   position: relative;
 }
 
 /* canvas を置くコンテナ */
 .canvas-container {
-  flex: 1;           /* 親の main 内で残り全部 */
-  position: relative; /* canvas を absolute で重ねる場合 */
+  flex: 1;
+  position: relative;
 }
 
 /* canvas を container にフィットさせる */
@@ -79,7 +75,7 @@ header {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;   /* CSS で見た目のサイズを指定 */
+  width: 100%;
   height: 100%;
 }
 
@@ -123,7 +119,9 @@ img {
     image-rendering: -webkit-optimize-contrast;
   }
 }
-
+svg[data-icon] {
+  -webkit-tap-highlight-color: transparent;
+}
 #svg {
   display: none
 }

@@ -58,39 +58,102 @@ const drawCanvas = () => {
 
   c.clearRect(0, 0, canvas.width, canvas.height)
 
-  // ボール描画（左上座標ベース）
+  // ボール描画
   balls.value.forEach(ball => {
     if (ball.hit) return
-    c.fillStyle = ball.color
+
+    const cx = ball.x + BALL_SIZE / 2
+    const cy = ball.y + BALL_SIZE / 2
+    const radius = BALL_SIZE / 2
+
+    // 内側シャドウ風グラデーション
+    const gradient = c.createRadialGradient(cx, cy, radius * 0.2, cx, cy, radius)
+    gradient.addColorStop(0, 'rgba(255,255,255,0.4)') // 中心ハイライト
+    gradient.addColorStop(1, ball.color)             // 外周ボールカラー
+
+    c.fillStyle = gradient
     c.beginPath()
-    c.arc(ball.x + BALL_SIZE / 2, ball.y + BALL_SIZE / 2, BALL_SIZE / 2, 0, Math.PI * 2)
+    c.arc(cx, cy, radius, 0, Math.PI * 2)
     c.fill()
+
+    // 外側薄い影で立体感を追加（任意）
+    c.strokeStyle = 'rgba(0,0,0,0.15)'
+    c.lineWidth = 2
+    c.stroke()
   })
 
   // エフェクト描画
-  effects.value.forEach(eff => {
-    c.fillStyle = 'rgba(255,255,255,0.8)'
+  effects.value.forEach((eff, index) => {
+    const c = ctx.value
+    if (!c) return
+
+    c.fillStyle = `rgba(255,255,255,${eff.alpha})`
     c.beginPath()
-    c.arc(eff.x, eff.y, BALL_SIZE / 2, 0, Math.PI * 2)
+    c.arc(eff.x, eff.y, eff.radius, 0, Math.PI * 2)
     c.fill()
+
+    // エフェクトを膨らませつつ透明度を下げる
+    eff.radius += 2
+    eff.alpha -= 0.05
+
+    // alpha が 0 以下になったら配列から削除
+    if (eff.alpha <= 0) effects.value.splice(index, 1)
   })
+
 }
 
 // Canvas タップ
+let pointerState = null
+
 const onCanvasPointerDown = (e) => {
+  e.preventDefault()
   const rect = canvasRef.value.getBoundingClientRect()
   const x = e.clientX - rect.left
   const y = e.clientY - rect.top
 
+  pointerState = { startX: x, startY: y, startTime: Date.now() }
+}
+
+const onCanvasPointerUp = (e) => {
+  if (!pointerState) return
+  const rect = canvasRef.value.getBoundingClientRect()
+  const x = e.clientX - rect.left
+  const y = e.clientY - rect.top
+
+  const dx = x - pointerState.startX
+  const dy = y - pointerState.startY
+  const distance = Math.hypot(dx, dy)
+  const time = Date.now() - pointerState.startTime
+
+  let hitBall = false
+
+  // ボールに当たったら削除＆エフェクト
   balls.value.forEach(ball => {
     const cx = ball.x + BALL_SIZE / 2
     const cy = ball.y + BALL_SIZE / 2
 
     if (Math.hypot(cx - x, cy - y) < BALL_SIZE / 2) {
       removeBall(ball.id)
+      hitBall = true
       playPon()
+      effects.value.push({ x: cx, y: cy, radius: 10, alpha: 1, color: '#ffffff' })
     }
   })
+
+  if (!hitBall) {
+    if (distance < 20 && time < 300) {
+      // タップ → 新しいボール
+      const OFFSET_RANGE = 50
+      const offsetX = (Math.random() - 0.5) * OFFSET_RANGE * 2
+      const offsetY = (Math.random() - 0.5) * OFFSET_RANGE * 2
+      addBall(x + offsetX, y + offsetY)
+    } else if (distance > 40) {
+      // スワイプ → 投げる
+      throwBall(pointerState.startX, pointerState.startY, dx, dy)
+    }
+  }
+
+  pointerState = null
 }
 
 
@@ -98,27 +161,28 @@ onMounted(() => {
   const canvas = canvasRef.value
   if (!canvas) return
   const c = canvas.getContext('2d')
-   if (!c) return
-const dpr = window.devicePixelRatio || 1
- const resizeCanvas = () => {
-   const rect = canvas.getBoundingClientRect()
-   canvas.width = rect.width * dpr
-   canvas.height = rect.height * dpr
-   c.setTransform(dpr, 0, 0, dpr, 0, 0)
- }
- resizeCanvas()
- window.addEventListener('resize', resizeCanvas)
+  if (!c) return
 
- ctx.value = c
+  const dpr = window.devicePixelRatio || 1
+  const resizeCanvas = () => {
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = rect.width * dpr
+    canvas.height = rect.height * dpr
+    c.setTransform(dpr, 0, 0, dpr, 0, 0)
+  }
+  resizeCanvas()
+  window.addEventListener('resize', resizeCanvas)
+
+  ctx.value = c
 
   // 初回デモボール
   spawnFirstDemoBall()
 
   // Canvas イベント
-  attachStageEvents(canvas)
   canvas.addEventListener('pointerdown', onCanvasPointerDown)
-
-  // --- ゲームループ ---
+  canvas.addEventListener('pointerup', onCanvasPointerUp)
+  
+  // ゲームループ
   const gameLoop = () => {
     updateBalls()
     updateFirstDemoBall()
@@ -129,6 +193,7 @@ const dpr = window.devicePixelRatio || 1
   }
   requestAnimationFrame(gameLoop)
 })
+
 </script>
 
 <style lang="scss" scoped>

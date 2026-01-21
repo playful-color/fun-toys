@@ -61,7 +61,7 @@ async function drawImageBackground(ctx, width, height, src) {
 
 onMounted(async () => {
   isMobile.value = window.matchMedia("(pointer: coarse)").matches;
-  c = canvas.value.getContext('2d');
+  c = canvas.value.getContext('2d', { willReadFrequently: true });
   width = canvas.value.width = window.innerWidth;
   height = canvas.value.height = window.innerHeight;
 
@@ -216,21 +216,36 @@ onMounted(async () => {
     canvas.value.addEventListener("mousemove", handleMouseMove);
 
     // タッチイベント
-    if(isMobile.value){
-      function handleTouchStart(){ isUserErasing.value=true; }
-      function handleTouchEnd(){ isUserErasing.value=false; }
-      function handleTouchMove(e){ handleMouseMove({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY}); }
+    if (isMobile.value) {
+      function handleTouchStart(e) {
+        isUserErasing.value = true;
+        e.preventDefault();
+      }
 
-      canvas.value.addEventListener("touchstart",handleTouchStart,{passive:true});
-      canvas.value.addEventListener("touchend",handleTouchEnd,{passive:true});
-      canvas.value.addEventListener("touchcancel",handleTouchEnd,{passive:true});
-      canvas.value.addEventListener("touchmove",handleTouchMove,{passive:true});
+      function handleTouchEnd(e) {
+        isUserErasing.value = false;
+        e.preventDefault();
+      }
 
-      onBeforeUnmount(()=>{
-        canvas.value.removeEventListener("touchstart",handleTouchStart);
-        canvas.value.removeEventListener("touchend",handleTouchEnd);
-        canvas.value.removeEventListener("touchcancel",handleTouchEnd);
-        canvas.value.removeEventListener("touchmove",handleTouchMove);
+      function handleTouchMove(e) {
+        handleMouseMove({
+          clientX: e.touches[0].clientX,
+          clientY: e.touches[0].clientY
+        });
+        e.preventDefault(); // ← Pull to Refresh / スクロール防止
+      }
+
+      // ★ passive:false のみ
+      canvas.value.addEventListener("touchstart", handleTouchStart, { passive: false });
+      canvas.value.addEventListener("touchend", handleTouchEnd, { passive: false });
+      canvas.value.addEventListener("touchcancel", handleTouchEnd, { passive: false });
+      canvas.value.addEventListener("touchmove", handleTouchMove, { passive: false });
+
+      onBeforeUnmount(() => {
+        canvas.value.removeEventListener("touchstart", handleTouchStart);
+        canvas.value.removeEventListener("touchend", handleTouchEnd);
+        canvas.value.removeEventListener("touchcancel", handleTouchEnd);
+        canvas.value.removeEventListener("touchmove", handleTouchMove);
       });
     }
 
@@ -288,6 +303,7 @@ onBeforeUnmount(() => {
   height: 100%;
   z-index: 9998;
   transition: opacity 0.5s;
+  touch-action: none;
   &.finished {
     opacity: 0;
     pointer-events: none;
