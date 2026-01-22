@@ -53,6 +53,9 @@ body,
   display: flex;
   flex-direction: column;
 }
+.app-root {
+  height: 100dvh;
+}
 header {
   height: 100px;
   flex-shrink: 0;

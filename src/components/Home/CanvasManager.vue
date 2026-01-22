@@ -1,26 +1,28 @@
 <template>
-  <div
-    class="canvas-container"
-    ref="canvasWrapper"
-    :style="{ transform: `translate(${panX}px, ${panY}px) scale(${scale})`, transformOrigin: '0 0' }"
-  >
-    <canvas ref="lineCanvas" class="layer line" style="pointer-events: none;"></canvas>
-    <canvas
-      ref="paintCanvas"
-      class="layer paint"
-      @mousedown="startDrawing"
-      @mousemove="draw"
-      @mouseup="stopDrawing"
-      @mouseleave="stopDrawing"
-      :style="{ cursor: brushCursor }"
+  <div class="canvas-viewport">
+    <div
+      class="canvas-container"
+      ref="canvasWrapper"
+      :style="{ transform: `translate(${panX}px, ${panY}px) scale(${scale})`, transformOrigin: '0 0' }"
     >
-    </canvas>
+      <canvas ref="lineCanvas" class="layer line" style="pointer-events: none;"></canvas>
+      <canvas
+        ref="paintCanvas"
+        class="layer paint"
+        @mousedown="startDrawing"
+        @mousemove="draw"
+        @mouseup="stopDrawing"
+        @mouseleave="stopDrawing"
+        :style="{ cursor: brushCursor }"
+      >
+      </canvas>
+    </div>
   </div>
 </template>
 
 <script setup>
 //管理分け予定
-import { ref, computed, watch, onMounted, defineExpose } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePainter } from '@/composables/usePainter';
 
 defineExpose({
@@ -139,26 +141,27 @@ function handleTouchStart(e) {
 // -----------------------
 // 黒領域からはみ出さないようにパン位置を制限
 function clampPan() {
-  if (!canvasWrapper.value || !lineCanvas.value) return;
+  const viewport = canvasWrapper.value?.parentElement;
+  if (!viewport || !lineCanvas.value) return;
 
-  const containerWidth = canvasWrapper.value.clientWidth;
-  const containerHeight = canvasWrapper.value.clientHeight;
-  const scaledWidth = lineCanvas.value.width * scale.value;
-  const scaledHeight = lineCanvas.value.height * scale.value;
+  const viewW = viewport.clientWidth;
+  const viewH = viewport.clientHeight;
 
-  const minX = Math.min(0, containerWidth - scaledWidth);
-  const maxX = 0;
-  const minY = Math.min(0, containerHeight - scaledHeight);
-  const maxY = 0;
+  const contentW = lineCanvas.value.width * scale.value;
+  const contentH = lineCanvas.value.height * scale.value;
 
-  panX.value = Math.min(Math.max(panX.value, minX), maxX);
-  panY.value = Math.min(Math.max(panY.value, minY), maxY);
+  const minX = Math.min(0, viewW - contentW);
+  const minY = Math.min(0, viewH - contentH);
+
+  panX.value = Math.min(0, Math.max(panX.value, minX));
+  panY.value = Math.min(0, Math.max(panY.value, minY));
 }
 
 
 // -----------------------
 // handleTouchMove 内でピンチズーム後に clampPan を呼ぶ
 function handleTouchMove(e) {
+  
   if (isPinching && e.touches.length === 2) {
     e.preventDefault();
 
@@ -199,20 +202,40 @@ function handleTouchEnd(e) {
 
 // -----------------------
 // キャラクター位置調整
-const handleResize = () => {
-  // 画面サイズに合わせてキャラクター位置を調整
-  isMobile.value = window.innerWidth <= 768;  // モバイル画面かどうかを判定
-  if (!canvasWrapper.value) return;
-  const containerWidth = canvasWrapper.value.clientWidth;
-  const containerHeight = canvasWrapper.value.clientHeight;
+function centerCharacter(ch) {
+  const canvasW = lineCanvas.value.width;
+  const canvasH = lineCanvas.value.height;
 
-  // キャラクターをキャンバスの中央に配置
+  ch.x = (canvasW - ch.width) / 2;
+  ch.y = (canvasH - ch.height) / 2;
+}
+
+function resizeCanvasToWrapper() {
+  if (!canvasWrapper.value) return;
+
+  const rect = canvasWrapper.value.getBoundingClientRect();
+  const width = rect.width;
+  const height = rect.height;
+
+  lineCanvas.value.width = width;
+  lineCanvas.value.height = height;
+  paintCanvas.value.width = width;
+  paintCanvas.value.height = height;
+
+  lineCanvas.value.style.width = `${width}px`;
+  lineCanvas.value.style.height = `${height}px`;
+  paintCanvas.value.style.width = `${width}px`;
+  paintCanvas.value.style.height = `${height}px`;
+}
+
+
+function handleResize() {
+  resizeCanvasToWrapper();
   props.characters.forEach(ch => {
-    ch.x = (lineCanvas.value.width - ch.width) / 2;
-    ch.y = (lineCanvas.value.height - ch.height) / 2;
+    centerCharacter(ch);
   });
   drawAllCharacters();
-};
+}
 
 function drawAllCharacters() {
   // 全キャラクターをキャンバスに描画
@@ -222,6 +245,7 @@ function drawAllCharacters() {
     if (ch.img.complete) lineCtx.drawImage(ch.img, ch.x, ch.y, ch.width, ch.height);  // キャラクター画像を描画
   });
 }
+
 
 // -----------------------
 // ランダムキャラクターのロジック
@@ -310,23 +334,27 @@ function ensureCharacterMatchesDevice() {
 
 // -----------------------
 // マウント時の初期化処理
-
+let onResize;
 onMounted(() => {
-  // コンポーネントがマウントされたときの初期化処理
-  handleResize();  // サイズ調整
-  lineCtx = lineCanvas.value.getContext('2d');  // 線描画用コンテキストを取得
-  const container = lineCanvas.value.parentElement;
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-  lineCanvas.value.width = width;  // キャンバスの幅設定
-  lineCanvas.value.height = height;  // キャンバスの高さ設定
-  paintCanvas.value.width = width;  // 塗りつぶし用キャンバスの設定
-  paintCanvas.value.height = height;  // 塗りつぶし用キャンバスの設定
+  lineCtx = lineCanvas.value.getContext('2d');
+  initialScale.value = scale.value;
+  handleResize();
+  
+ onResize = () => {
+    const wasMobile = isMobile.value;
+    isMobile.value = window.innerWidth <= 768;
 
-  lineCanvas.value.style.width = `${width}px`;
-  lineCanvas.value.style.height = `${height}px`;
-  paintCanvas.value.style.width = `${width}px`;
-  paintCanvas.value.style.height = `${height}px`;
+    handleResize();
+    clampPan();
+
+    if (wasMobile !== isMobile.value) {
+      ensureCharacterMatchesDevice();
+    }
+ };
+
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+
   updateBrushCursor();  // カーソルを初期化
 
   const painter = usePainter({  // 描画関連のカスタムフックを利用
@@ -373,20 +401,14 @@ onMounted(() => {
   el.addEventListener('touchend', handleTouchEnd, { passive: false });
   el.addEventListener('touchcancel', handleTouchEnd, { passive: false });
   clampPan(); 
-  const onResize = () => {
-  const wasMobile = isMobile.value;
-  isMobile.value = window.innerWidth <= 768;
 
-  // PC/SP が切り替わったときだけチェック
-  if (wasMobile !== isMobile.value) {
-    ensureCharacterMatchesDevice();
-  }
-};
-
-window.addEventListener('resize', onResize);
-window.addEventListener('orientationchange', onResize);
 });
-
+onUnmounted(() => {
+  if (onResize) {
+    window.removeEventListener('resize', onResize);
+    window.removeEventListener('orientationchange', onResize);
+  }
+});
 // -----------------------
 // 保存処理
 
@@ -419,6 +441,14 @@ async function saveImage() {
 <style lang="scss" scoped>
 @use "@/assets/styles/variables" as vars;
 @use "@/assets/styles/mixins" as *;
+
+.canvas-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 .canvas-container {
   touch-action: none;
   -ms-touch-action: none;
@@ -426,14 +456,12 @@ async function saveImage() {
   overflow: hidden; 
   width: 100%;
   height: 100%;
-  touch-action: none; 
 }
 
 .layer {
   position: absolute;
   top: 0;
   left: 0;
-  border: solid 1px vars.$green;
 }
   .line {
     z-index: 2;
