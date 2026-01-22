@@ -159,6 +159,9 @@ button {
     outline: none;
     box-shadow: none;
   }
+   svg {
+    pointer-events: none;
+  }
 }
 
 svg[data-icon] {
