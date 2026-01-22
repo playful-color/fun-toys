@@ -1,7 +1,7 @@
 <template>
   <nav class="nav">
     <!-- ハンバーガー（SP用） -->
-    <button class="hamburger" @click="toggleMenu">
+    <button class="hamburger icon-button" @click="toggleMenu">
       <font-awesome-icon :icon="menuOpen ? 'xmark' : 'bars'" />
     </button>
 
@@ -96,28 +96,26 @@ function closeMenu() {
       inset: 0;
       flex-direction: column;
       align-items: center;
-
       background: rgba(255, 255, 255, 0.2);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-
       border: 1px solid rgba(255, 255, 255, 0.3);
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.1),
         inset 0 1px 0 rgba(255, 255, 255, 0.5),
         inset 0 -1px 0 rgba(255, 255, 255, 0.1),
         inset 0 0 40px 20px rgba(255, 255, 255, 2);
-
-      /* 閉じてる時 */
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.3s ease;
       z-index: 1100;
-    }
-
-    .nav-links.open {
-      opacity: 1;
-      pointer-events: auto;
+      a {
+        font-size: vw(24);
+      }
+      &.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
     }
 
     .overlay-logo {

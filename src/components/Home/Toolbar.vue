@@ -10,11 +10,11 @@
         <ColorPicker />
       </div>
    
-      <button ref="brushBtn" @click="onBrushClick" class="brush-btn">
+      <button ref="brushBtn" @click="onBrushClick" class="brush-btn icon-button">
         <font-awesome-icon icon="paintbrush" :style="{ color: brushIconColor }" />
         <span class="label">ブラシ</span>
       </button>
-      <button @click="localIsEraser = true" :class="{ active: localIsEraser }">
+      <button @click="localIsEraser = true" :class="['icon-button', { active: localIsEraser }]">
         <font-awesome-icon icon="eraser" />
         <span class="label">消しゴム</span>
       </button>
@@ -24,7 +24,7 @@
 
     
       <div v-if="isMobile && !isEraser" class="size-control">
-        <button @click="changeSize(5)">
+        <button @click="changeSize(5)" class="icon-button">
           <font-awesome-icon icon="plus" />
         </button>
         <div
@@ -43,7 +43,7 @@
           {{ localBrushSize }}
         </div>
 
-        <button @click="changeSize(-5)">
+        <button @click="changeSize(-5)" class="icon-button">
           <font-awesome-icon icon="minus" />
         </button>
       </div>
@@ -69,21 +69,22 @@
         <button @click="changeSize(-5)">−</button>
       </div>
 
-      <button @click="props.undo">
+      <button @click="props.undo" class="icon-button">
         <font-awesome-icon icon="undo" />
         <span class="label">ひとつもどる</span>
       </button>
-      <button @click="props.redo">
+      <button @click="props.redo" class="icon-button">
         <font-awesome-icon icon="redo" />
         <span class="label">つぎへ</span>
       </button>
-      <button @click="props.saveImage()">
+      <button @click="props.saveImage()" class="icon-button">
         <font-awesome-icon icon="download" />
         <span class="label">ほぞん</span>
       </button>
       <button
           @touchstart.prevent="emit('randomCharacter')"
           @click.prevent="emit('randomCharacter')"
+          class="icon-button"
         >
         <font-awesome-icon icon="dice" />
         <span class="label">ランダムきりかえ</span>

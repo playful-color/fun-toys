@@ -14,7 +14,8 @@ import Navigation from '@/components/Common/Navigation.vue'
 @use "@/assets/styles/variables" as vars;
 @use "@/assets/styles/mixins" as *;
 header {
-  min-width: 1200px;
+  max-width: 1200px;
+  width: 97%;
   margin: 0 auto;
   @include flex-center;
   justify-content: space-between;
