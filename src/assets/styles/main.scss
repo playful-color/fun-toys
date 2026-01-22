@@ -139,31 +139,33 @@ button {
   }
 }
 .icon-button {
-  -webkit-appearance: none;
+  -webkit-appearance: none;    // iOS標準ボタンスタイル無効
   appearance: none;
-  background: transparent;
+  background: transparent;      // 背景透過
   border: none;
-  padding: 0;
+  margin: 0;
   cursor: pointer;
+  color: inherit;
+  text-align: center;
 
-  outline: none;
-  box-shadow: none;
-
+  /* iOS タップ時の青ハイライトを消す */
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  user-select: none;              
-  -webkit-user-select: none;
   -webkit-touch-callout: none;
-  &:active,&:focus {
-    background: transparent;
+
+  /* タップ中やフォーカス時の装飾無効 */
+  &:active,
+  &:focus {
     outline: none;
     box-shadow: none;
+    background: transparent;
   }
-   svg {
-    pointer-events: none;
+
+  /* アイコンとラベルの間の余白 */
+  svg {
+    pointer-events: none; // アイコン自体に触れてもイベントはボタンに伝わる
+    display: inline-block;
   }
 }
-
 svg[data-icon] {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;

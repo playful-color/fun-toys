@@ -164,8 +164,8 @@ function rgbaString(c) {
 
 @include sp {
   .palette {
-    bottom: -21vw;
-    left: 2vw;
+    bottom: 0;
+    left: 3vw;
     width: 98vw;
   }
 

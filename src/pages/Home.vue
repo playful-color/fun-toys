@@ -95,7 +95,7 @@ function changeRandomCharacter() {
   margin: 0 auto;
   overflow: hidden;
   @include sp {
-    width: 90%;
+    width: 100%;
     height: calc(100% - 9vw);
     margin: 0 0 0 auto;
   }

@@ -219,8 +219,16 @@ function resizeCanvasToWrapper() {
 
   lineCanvas.value.width = width;
   lineCanvas.value.height = height;
+  // paintCanvas は初期ロード時に保持したいので、既存内容を一時保存
+  const savedPaint = paintCanvas.value.toDataURL();
   paintCanvas.value.width = width;
   paintCanvas.value.height = height;
+  const imgPaint = new Image();
+  imgPaint.src = savedPaint;
+  imgPaint.onload = () => {
+    const ctx = paintCanvas.value.getContext('2d');
+    ctx.drawImage(imgPaint, 0, 0, paintCanvas.value.width, paintCanvas.value.height);
+  };
 
   lineCanvas.value.style.width = `${width}px`;
   lineCanvas.value.style.height = `${height}px`;
@@ -296,11 +304,14 @@ function loadRandomCharacterOnce() {
 }
 
 function changeRandomCharacter() {
-  // ランダムにキャラクターを変更
   const newSrc = getRandomCharacterSrc();
   const img = new Image();
   img.src = newSrc;
   img.onload = () => {
+    // 先にローカルストレージと PainterStore をクリア
+    resetPaint();
+
+    // キャラクター更新
     props.characters.splice(0, props.characters.length, {
       img,
       x: 0,
@@ -309,11 +320,14 @@ function changeRandomCharacter() {
       height: (isMobile.value ? 400 : 1000) * (img.naturalHeight / img.naturalWidth)
     });
 
-    handleResize();  // 位置調整
-    if (typeof resetPaint === 'function') resetPaint();  // 描画状態のリセット
-    updateBrushCursor();  // カーソル更新
+    handleResize();
+    drawAllCharacters(); 
+    updateBrushCursor();
   };
 }
+
+
+
 function getCurrentImageType() {
   if (!props.characters.length) return null;
   const src = props.characters[0].img.src;
@@ -392,6 +406,7 @@ onMounted(() => {
     });
     handleResize();  // キャラクターの位置調整
     updateBrushCursor();  // カーソル更新
+    // resetPaintは呼ばない
   };
 
   const el = canvasWrapper.value;
@@ -447,34 +462,36 @@ async function saveImage() {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  @include sp {
+    width: calc(100% - 10vw);
+    position: absolute;
+    right: 0;
+  }
+  .canvas-container {
+    touch-action: none;
+    -ms-touch-action: none;
+    position: relative;
+    overflow: hidden; 
+    width: 100%;
+    height: 100%;
+  }
+  .layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    &.line {
+      z-index: 2;
+    }
+    &.paint {
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.7);
+    }
+  }
 }
 
-.canvas-container {
-  touch-action: none;
-  -ms-touch-action: none;
-  position: relative;
-  overflow: hidden; 
-  width: 100%;
-  height: 100%;
-}
 
-.layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-  .line {
-    z-index: 2;
-  }
-  .paint {
-    z-index: 1;
-    background: rgba(255, 255, 255, 0.7);
-  }
-  .canvas-container button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 10;
-}
+
+
+
 
 </style>

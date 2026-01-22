@@ -31,9 +31,16 @@ export function usePainter({
   function resetPaint() {
     painterStore.strokes = [];
     painterStore.strokeIndex = -1;
+    painterStore.currentStroke = null;
     localStorage.removeItem('painterStrokes');
-    redrawPaint();
+
+    // paintCanvas を完全にクリア
+    if (paintCanvas.value) {
+      const ctx = paintCanvas.value.getContext('2d');
+      ctx.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
+    }
   }
+
 
   // イベントから座標を取得する関数
 function getEventPos(e) {

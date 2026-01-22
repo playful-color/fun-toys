@@ -1,5 +1,5 @@
 <template>
-  <div class="toolbar">
+  <div ref="toolbar" class="toolbar">
 
     <div class="toolbar-inner show">
       <div
@@ -95,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import ColorPicker from '/src/components/Home/ColorPicker.vue';
 import { useColorStore } from '@/stores/useColorStore';
 import { usePainterStore } from '@/stores/usePainterStore';
@@ -211,6 +211,26 @@ function changeSize(delta) {
   }
 }
 
+//ツールバーの位置調整
+const toolbar = ref(null);
+const canvasEl = ref(null);
+
+const updateToolbarPosition = () => {
+  if (!toolbar.value || !canvasEl.value) return;
+  const rect = canvasEl.value.getBoundingClientRect();
+  toolbar.value.style.top = rect.top + 'px'; // キャンバス上端に合わせる
+  toolbar.value.style.left = rect.left + 'px';
+};
+
+onMounted(() => {
+  updateToolbarPosition();
+  window.addEventListener('resize', updateToolbarPosition);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateToolbarPosition);
+});
+
 </script>
 
 
@@ -242,9 +262,9 @@ function changeSize(delta) {
   }
   @include sp {
     width: 10vw;
-    height: calc(100% - 50vw);
-    position: fixed;
-    top: 20vw;
+    height: 100%;
+    position: absolute;
+    top: 0;
     left: 0;
     transform: none;
     flex-direction: column;
@@ -254,17 +274,21 @@ function changeSize(delta) {
       height: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: flex-start;
       position: fixed;
       left: 0;
       top: 0;
       z-index: 1000;
-      gap: 0;
-      padding: 0;
+      gap: 16px;
+      padding: 3vw 0 0;
       border-radius: 4px;
       button {
         font-size: vw(24);
-        min-width: vw(44);
-        min-height: vw(44);
+        min-width: vw(40);
+        min-height: vw(40);
+        display: flex;
+        justify-content: center;
+        align-items: center;
         .label {
           display: none;
         }
@@ -283,8 +307,7 @@ function changeSize(delta) {
         }
       }
       &.show {
-        justify-content: space-evenly;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.1), inset 0 0 10px 5px rgb(255, 255, 255);
+       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.1), inset 0 0 10px 5px rgb(255, 255, 255);
       }
     }
   }
