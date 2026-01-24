@@ -1,11 +1,12 @@
 <template>
   <div class="canvas-viewport">
-    <div
-      class="canvas-container"
-      ref="canvasWrapper"
-      :style="{ transform: `translate(${panX}px, ${panY}px) scale(${scale})`, transformOrigin: '0 0' }"
-    >
-      <canvas ref="lineCanvas" class="layer line" style="pointer-events: none;"></canvas>
+    <div v-if="cursorVisible" :style="cursorStyle" class="mobile-cursor"></div>
+    <div class="canvas-container" ref="canvasWrapper">
+      <canvas
+        ref="lineCanvas"
+        class="layer line"
+        style="pointer-events: none"
+      ></canvas>
       <canvas
         ref="paintCanvas"
         class="layer paint"
@@ -21,92 +22,80 @@
 </template>
 
 <script setup>
-//管理分け予定
+//管理分け予定 調整中
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useBrushCursor } from '@/composables/useBrushCursor';
 import { usePainter } from '@/composables/usePainter';
 
 defineExpose({
-  changeRandomCharacter
+  changeRandomCharacter,
 });
 
 // -----------------------
 // Propsの定義
 // 親コンポーネントから渡される値を定義
 const props = defineProps({
-  characters: Array,  // 描画するキャラクターの配列
-  isEraser: Boolean,  // 消しゴムモードかどうか
-  brushSize: Number,   // ブラシのサイズ
-  eraserSize: Number,  // 消しゴムのサイズ
-  selectedColor: Object // 選択中の色
+  characters: Array, // 描画するキャラクターの配列
+  isEraser: Boolean, // 消しゴムモードかどうか
+  brushSize: Number, // ブラシのサイズ
+  eraserSize: Number, // 消しゴムのサイズ
+  selectedColor: Object, // 選択中の色
 });
 
-const emit = defineEmits([  // 親コンポーネントへ通知するイベント
+const emit = defineEmits([
+  // 親コンポーネントへ通知するイベント
   'update:isPainting',
   'closePalette',
   'updateUndoRedo',
-  'updateSaveImage'
+  'updateSaveImage',
 ]);
 
 // -----------------------
 // リファレンスと状態の定義
-const lineCanvas = ref(null);  // 線の描画用キャンバス
+const lineCanvas = ref(null); // 線の描画用キャンバス
 const paintCanvas = ref(null); // 塗りつぶし用キャンバス
 const canvasWrapper = ref(null); // キャンバスを囲むラッパー要素
-let lineCtx = null;  // 線描画用のコンテキスト
-const brushCursor = ref('crosshair');  // ブラシのカーソルスタイル
-const scale = ref(1);  // キャンバスの拡大縮小比率
-const initialScale = ref(1); 
-const minScale = 1;  // 最小ズームスケール
-const maxScale = 3;    // 最大ズームスケール
-const panX = ref(0);   // X方向のパン（移動）
-const panY = ref(0);   // Y方向のパン（移動）
-let isPinching = false;  // ピンチ操作中かどうか
-const isMobile = ref(window.innerWidth <= 768);  // モバイル判定
+
+let lineCtx = null; // 線描画用のコンテキスト
+// ブラシのカーソルスタイル
+const scale = ref(1); // キャンバスの拡大縮小比率
+const initialScale = ref(1);
+const minScale = 1; // 最小ズームスケール
+const maxScale = 3; // 最大ズームスケール
+const panX = ref(0); // X方向のパン（移動）
+const panY = ref(0); // Y方向のパン（移動）
+let isPinching = false; // ピンチ操作中かどうか
+const isMobile = ref(window.innerWidth <= 768); // モバイル判定
 
 // -----------------------
 // 描画関連の変数（必要な変数を復元）
 let startDrawing, draw, stopDrawing, isPainting, undo, redo, resetPaint;
-let lastTouchPos = null;  // タッチの位置を保存
+let lastTouchPos = null; // タッチの位置を保存
 let lastPinchDistance = null; // ピンチ操作時の距離を保存
 let lastPinchCenter = null; // ピンチ操作時の中心を保存
 
-// -----------------------
-// 描画用のカーソルと更新関数
-function createCircleCursor(size, options = {}) {
-  // カスタムカーソルを生成する関数
-  const { color = 'rgba(0,0,0,0.6)', dashed = false } = options;
-  const radius = size * 0.3;
-  const diameter = radius * 2;
-  const canvas = document.createElement('canvas');
-  canvas.width = diameter;
-  canvas.height = diameter;
-  const ctx = canvas.getContext('2d');
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.setLineDash(dashed ? [4, 4] : []);
-  ctx.beginPath();
-  ctx.arc(radius, radius, radius - 1, 0, Math.PI * 2);
-  ctx.stroke();
-  return `url(${canvas.toDataURL()}) ${radius} ${radius}, auto`;  // CSS用のURLを返す
-}
-
-// ブラシカーソルを更新
-function updateBrushCursor() {
-  // 消しゴムとブラシでカーソルの見た目を切り替える
-  if (!props.isEraser) {
-    const { r, g, b, a } = props.selectedColor;
-    brushCursor.value = createCircleCursor(props.brushSize, { color: `rgba(${r},${g},${b},${a})` });
-  } else {
-    const alpha = isPinching ? 0.4 : 0.8;
-    brushCursor.value = createCircleCursor(props.eraserSize, { color: `rgba(80,80,80,${alpha})`, dashed: true });
-  }
-}
-
-// Propsが変更された時にブラシカーソルを更新
-watch(() => props.isEraser, updateBrushCursor);  // 消しゴムモードの変更を監視
-watch(() => props.brushSize, updateBrushCursor);  // ブラシサイズの変更を監視
-watch(() => props.eraserSize, updateBrushCursor); // 消しゴムサイズの変更を監視
-watch(() => props.selectedColor, updateBrushCursor); // 色の変更を監視
+// useBrushCursor でPC/スマホカーソル管理
+const {
+  brushCursor,
+  cursorPos,
+  cursorVisible,
+  updateBrushCursor,
+  updateCursorPosition,
+  hideCursor,
+  cursorStyle,
+} = useBrushCursor({
+  isEraser: computed(() => props.isEraser),
+  brushSize: computed(() => props.brushSize),
+  eraserSize: computed(() => props.eraserSize),
+  selectedColor: computed(() => props.selectedColor),
+  isMobile,
+  canvasRect: computed(
+    () => paintCanvas.value?.getBoundingClientRect() || { left: 0, top: 0 }
+  ),
+  panX: panX,
+  panY: panY,
+  scale: scale,
+});
 
 // -----------------------
 // タッチイベント関連
@@ -121,21 +110,28 @@ function getPinchCenter(touches) {
   // ピンチ操作時の中心位置を計算
   return {
     x: (touches[0].clientX + touches[1].clientX) / 2,
-    y: (touches[0].clientY + touches[1].clientY) / 2
+    y: (touches[0].clientY + touches[1].clientY) / 2,
   };
 }
 
 function handleTouchStart(e) {
-  // タッチ開始時の処理
   if (e.touches.length === 1) {
     isPinching = false;
-    emit('closePalette');  // パレットを閉じる
-    startDrawing(e);  // 描画開始
+    emit('closePalette');
+
+    updateCursorPosition(e, {
+      canvasRect: paintCanvas.value.getBoundingClientRect(),
+      panX: panX.value,
+      panY: panY.value,
+      scale: scale.value,
+    });
+
+    startDrawing(e);
   } else if (e.touches.length === 2) {
     isPinching = true;
-    stopDrawing();  // 描画停止
-    lastPinchDistance = getPinchDistance(e.touches);  // ピンチ距離を記録
-    lastPinchCenter = getPinchCenter(e.touches);  // ピンチ中心を記録
+    stopDrawing();
+    lastPinchDistance = getPinchDistance(e.touches);
+    lastPinchCenter = getPinchCenter(e.touches);
   }
 }
 // -----------------------
@@ -157,37 +153,43 @@ function clampPan() {
   panY.value = Math.min(0, Math.max(panY.value, minY));
 }
 
-
 // -----------------------
 // handleTouchMove 内でピンチズーム後に clampPan を呼ぶ
 function handleTouchMove(e) {
-  
   if (isPinching && e.touches.length === 2) {
     e.preventDefault();
+    e.stopPropagation();
 
     const newDistance = getPinchDistance(e.touches);
     const newCenter = getPinchCenter(e.touches);
 
+    // scale の更新
     let delta = newDistance / lastPinchDistance;
     let newScale = scale.value * delta;
     newScale = Math.max(initialScale.value, Math.min(maxScale, newScale));
 
-    panX.value = (panX.value - lastPinchCenter.x) * (newScale / scale.value) + newCenter.x;
-    panY.value = (panY.value - lastPinchCenter.y) * (newScale / scale.value) + newCenter.y;
+    // ピンチ中心を考慮して pan を補正
+    const ratio = newScale / scale.value;
+
+    panX.value = (panX.value - lastPinchCenter.x) * ratio + newCenter.x;
+    panY.value = (panY.value - lastPinchCenter.y) * ratio + newCenter.y;
 
     scale.value = newScale;
-     clampPan(); // ←追加
+    clampPan();
+
+    // 次回の計算用に更新
     lastPinchDistance = newDistance;
     lastPinchCenter = newCenter;
-
-   
-
   } else if (!isPinching && e.touches.length === 1) {
-    draw(e);
+    updateCursorPosition(e, {
+      canvasRect: paintCanvas.value.getBoundingClientRect(),
+      panX: panX.value,
+      panY: panY.value,
+      scale: scale.value,
+    });
+    draw(e); // 描画処理
   }
 }
-
-
 
 function handleTouchEnd(e) {
   // タッチ終了時の処理
@@ -196,9 +198,11 @@ function handleTouchEnd(e) {
     lastPinchDistance = null;
     lastPinchCenter = null;
   }
-  if (e.touches.length === 0) stopDrawing();  // 全てのタッチが終了したら描画を停止
+  if (e.touches.length === 0) {
+    hideCursor();
+    stopDrawing();
+  } // 全てのタッチが終了したら描画を停止
 }
-
 
 // -----------------------
 // キャラクター位置調整
@@ -210,7 +214,7 @@ function centerCharacter(ch) {
   ch.y = (canvasH - ch.height) / 2;
 }
 
-function resizeCanvasToWrapper() {
+function resizeCanvasToWrapper({ force = false } = {}) {
   if (!canvasWrapper.value) return;
 
   const rect = canvasWrapper.value.getBoundingClientRect();
@@ -227,8 +231,21 @@ function resizeCanvasToWrapper() {
   imgPaint.src = savedPaint;
   imgPaint.onload = () => {
     const ctx = paintCanvas.value.getContext('2d');
-    ctx.drawImage(imgPaint, 0, 0, paintCanvas.value.width, paintCanvas.value.height);
+    ctx.drawImage(
+      imgPaint,
+      0,
+      0,
+      paintCanvas.value.width,
+      paintCanvas.value.height
+    );
   };
+
+  if (force) {
+    lineCanvas.value.width = width;
+    lineCanvas.value.height = height;
+    paintCanvas.value.width = width;
+    paintCanvas.value.height = height;
+  }
 
   lineCanvas.value.style.width = `${width}px`;
   lineCanvas.value.style.height = `${height}px`;
@@ -236,43 +253,92 @@ function resizeCanvasToWrapper() {
   paintCanvas.value.style.height = `${height}px`;
 }
 
-
 function handleResize() {
   resizeCanvasToWrapper();
-  props.characters.forEach(ch => {
+  props.characters.forEach((ch) => {
     centerCharacter(ch);
   });
   drawAllCharacters();
 }
 
+function switchDevice() {
+  const paintData = paintCanvas.value.toDataURL();
+  resizeCanvasToWrapper();
+
+  changeRandomCharacter();
+  props.characters.forEach(centerCharacter);
+
+  const img = new Image();
+  img.src = paintData;
+  img.onload = () => {
+    const ctx = paintCanvas.value.getContext('2d');
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
+    ctx.drawImage(img, 0, 0, paintCanvas.value.width, paintCanvas.value.height);
+  };
+
+  updateBrushCursor();
+}
+
+const handleResizeDevice = () => {
+  const wasMobile = isMobile.value;
+  isMobile.value = window.innerWidth <= 768;
+
+  if (wasMobile !== isMobile.value) {
+    switchDevice();
+  }
+};
+
+window.addEventListener('resize', handleResizeDevice);
+window.addEventListener('orientationchange', handleResizeDevice);
+
+function redrawLineCanvas() {
+  if (!lineCanvas.value) return;
+  const ctx = lineCanvas.value.getContext('2d');
+
+  // ① 変換リセット
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, lineCanvas.value.width, lineCanvas.value.height);
+
+  // ② pan / scale を適用（★ paintCanvas と完全一致）
+  ctx.setTransform(scale.value, 0, 0, scale.value, panX.value, panY.value);
+
+  // ③ キャラクター描画
+  props.characters.forEach((ch) => {
+    if (ch.img.complete) {
+      ctx.drawImage(ch.img, ch.x, ch.y, ch.width, ch.height);
+    }
+  });
+}
+watch([scale, panX, panY], () => {
+  redrawLineCanvas();
+});
 function drawAllCharacters() {
   // 全キャラクターをキャンバスに描画
   if (!lineCtx) return;
-  lineCtx.clearRect(0, 0, lineCanvas.value.width, lineCanvas.value.height);  // 画面をクリア
-  props.characters.forEach(ch => {
-    if (ch.img.complete) lineCtx.drawImage(ch.img, ch.x, ch.y, ch.width, ch.height);  // キャラクター画像を描画
+  lineCtx.clearRect(0, 0, lineCanvas.value.width, lineCanvas.value.height); // 画面をクリア
+  props.characters.forEach((ch) => {
+    if (ch.img.complete)
+      lineCtx.drawImage(ch.img, ch.x, ch.y, ch.width, ch.height); // キャラクター画像を描画
   });
 }
 
-
 // -----------------------
 // ランダムキャラクターのロジック
+import pcA from '@/assets/images/home/01/2026_01a_pc.png';
+import pcB from '@/assets/images/home/01/2026_01b_pc.png';
+import pcC from '@/assets/images/home/01/2026_01c_pc.png';
 
-import pcA from '@/assets/images/home/01/2026_01a_pc.png'
-import pcB from '@/assets/images/home/01/2026_01b_pc.png'
-import pcC from '@/assets/images/home/01/2026_01c_pc.png'
+import spA from '@/assets/images/home/01/2026_01a_sp.png';
+import spB from '@/assets/images/home/01/2026_01b_sp.png';
+import spC from '@/assets/images/home/01/2026_01c_sp.png';
 
-import spA from '@/assets/images/home/01/2026_01a_sp.png'
-import spB from '@/assets/images/home/01/2026_01b_sp.png'
-import spC from '@/assets/images/home/01/2026_01c_sp.png'
-
-const pcImages = [pcA, pcB, pcC]
-const spImages = [spA, spB, spC]
+const pcImages = [pcA, pcB, pcC];
+const spImages = [spA, spB, spC];
 
 function getStorageKey() {
-  return isMobile.value
-    ? 'currentCharacterSrc_sp'
-    : 'currentCharacterSrc_pc';
+  return isMobile.value ? 'currentCharacterSrc_sp' : 'currentCharacterSrc_pc';
 }
 
 function getRandomCharacterSrc() {
@@ -317,16 +383,15 @@ function changeRandomCharacter() {
       x: 0,
       y: 0,
       width: isMobile.value ? 400 : 1000,
-      height: (isMobile.value ? 400 : 1000) * (img.naturalHeight / img.naturalWidth)
+      height:
+        (isMobile.value ? 400 : 1000) * (img.naturalHeight / img.naturalWidth),
     });
 
     handleResize();
-    drawAllCharacters(); 
+    drawAllCharacters();
     updateBrushCursor();
   };
 }
-
-
 
 function getCurrentImageType() {
   if (!props.characters.length) return null;
@@ -353,8 +418,8 @@ onMounted(() => {
   lineCtx = lineCanvas.value.getContext('2d');
   initialScale.value = scale.value;
   handleResize();
-  
- onResize = () => {
+
+  onResize = () => {
     const wasMobile = isMobile.value;
     isMobile.value = window.innerWidth <= 768;
 
@@ -364,21 +429,30 @@ onMounted(() => {
     if (wasMobile !== isMobile.value) {
       ensureCharacterMatchesDevice();
     }
- };
+  };
 
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', onResize);
 
-  updateBrushCursor();  // カーソルを初期化
+  if (!isMobile.value) {
+    if (paintCanvas.value) paintCanvas.value.style.cursor = brushCursor.value;
+  }
+  updateBrushCursor(); // カーソルを初期化
 
-  const painter = usePainter({  // 描画関連のカスタムフックを利用
+  const painter = usePainter({
+    // 描画関連のカスタムフックを利用
     paintCanvas,
     isEraser: computed(() => props.isEraser),
     brushSize: computed(() => props.brushSize),
     eraserSize: computed(() => props.eraserSize),
     selectedColor: computed(() => props.selectedColor),
     scale,
-    updateBrushCursor
+    panX,
+    panY,
+    updateBrushCursor,
+    cursorPos,
+    cursorVisible,
+    isMobile,
   });
 
   // 描画関連のメソッドを取得
@@ -390,10 +464,10 @@ onMounted(() => {
   redo = painter.redo;
   resetPaint = painter.resetPaint;
 
-  emit('updateUndoRedo', { undo, redo });  // undo/redoの情報を親コンポーネントに通知
-  emit('updateSaveImage', saveImage);  // 保存処理のイベントを親コンポーネントに通知
+  emit('updateUndoRedo', { undo, redo }); // undo/redoの情報を親コンポーネントに通知
+  emit('updateSaveImage', saveImage); // 保存処理のイベントを親コンポーネントに通知
 
-  const randomSrc = loadRandomCharacterOnce();  // ランダムキャラクターを取得
+  const randomSrc = loadRandomCharacterOnce(); // ランダムキャラクターを取得
   const img = new Image();
   img.src = randomSrc;
   img.onload = () => {
@@ -402,10 +476,12 @@ onMounted(() => {
       x: 0,
       y: 0,
       width: window.innerWidth <= 768 ? 400 : 1000,
-      height: (window.innerWidth <= 768 ? 400 : 1000) * (img.naturalHeight / img.naturalWidth)
+      height:
+        (window.innerWidth <= 768 ? 400 : 1000) *
+        (img.naturalHeight / img.naturalWidth),
     });
-    handleResize();  // キャラクターの位置調整
-    updateBrushCursor();  // カーソル更新
+    handleResize(); // キャラクターの位置調整
+    updateBrushCursor(); // カーソル更新
     // resetPaintは呼ばない
   };
 
@@ -415,8 +491,7 @@ onMounted(() => {
   el.addEventListener('touchmove', handleTouchMove, { passive: false });
   el.addEventListener('touchend', handleTouchEnd, { passive: false });
   el.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-  clampPan(); 
-
+  clampPan();
 });
 onUnmounted(() => {
   if (onResize) {
@@ -434,28 +509,27 @@ async function saveImage() {
   const width = lineCanvas.value.width;
   const height = lineCanvas.value.height;
 
-  const out = document.createElement('canvas');  // 新しいキャンバスを作成
+  const out = document.createElement('canvas'); // 新しいキャンバスを作成
   out.width = width;
   out.height = height;
   const ctx = out.getContext('2d');
 
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);  // 背景を白で塗りつぶす
+  ctx.fillRect(0, 0, width, height); // 背景を白で塗りつぶす
 
-  ctx.drawImage(paintCanvas.value, 0, 0, width, height);  // 塗りつぶしキャンバスを描画
-  ctx.drawImage(lineCanvas.value, 0, 0, width, height);  // 線のキャンバスを描画
+  ctx.drawImage(paintCanvas.value, 0, 0, width, height); // 塗りつぶしキャンバスを描画
+  ctx.drawImage(lineCanvas.value, 0, 0, width, height); // 線のキャンバスを描画
 
   const link = document.createElement('a');
-  link.download = 'painting.png';  // ダウンロード用のリンクを作成
-  link.href = out.toDataURL('image/png');  // キャンバスの内容を画像データURLとして設定
-  link.click();  // ダウンロードを実行
+  link.download = 'painting.png'; // ダウンロード用のリンクを作成
+  link.href = out.toDataURL('image/png'); // キャンバスの内容を画像データURLとして設定
+  link.click(); // ダウンロードを実行
 }
 </script>
 
-
 <style lang="scss" scoped>
-@use "@/assets/styles/variables" as vars;
-@use "@/assets/styles/mixins" as *;
+@use '@/assets/styles/variables' as vars;
+@use '@/assets/styles/mixins' as *;
 
 .canvas-viewport {
   position: relative;
@@ -463,15 +537,18 @@ async function saveImage() {
   height: 100%;
   overflow: hidden;
   @include sp {
-    width: calc(100% - 10vw);
+    width: calc(100% - 11vw);
     position: absolute;
     right: 0;
   }
   .canvas-container {
     touch-action: none;
     -ms-touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
     position: relative;
-    overflow: hidden; 
+    overflow: hidden;
     width: 100%;
     height: 100%;
   }
@@ -489,9 +566,7 @@ async function saveImage() {
   }
 }
 
-
-
-
-
-
+.mobile-cursor {
+  z-index: 1000;
+}
 </style>

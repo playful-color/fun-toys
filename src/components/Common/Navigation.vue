@@ -14,11 +14,7 @@
         </router-link>
       </li>
 
-      <li
-        v-for="item in nav.items"
-        :key="item.path"
-        @click="closeMenu"
-      >
+      <li v-for="item in nav.items" :key="item.path" @click="closeMenu">
         <router-link :to="item.path">
           {{ item.name }}
         </router-link>
@@ -28,28 +24,28 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useNavigationStore } from '@/stores/navigation'
-import logo from '@/assets/images/common/logo.png'
+import { ref } from 'vue';
+import { useNavigationStore } from '@/stores/navigation';
+import logo from '@/assets/images/common/logo.png';
 
 // ストアからナビゲーションデータを取得
-const nav = useNavigationStore()
-const menuOpen = ref(false)
+const nav = useNavigationStore();
+const menuOpen = ref(false);
 
 // メニューの開閉トグル
 function toggleMenu() {
-  menuOpen.value = !menuOpen.value
+  menuOpen.value = !menuOpen.value;
 }
 
 // メニューを閉じる
 function closeMenu() {
-  menuOpen.value = false
+  menuOpen.value = false;
 }
 </script>
 
 <style lang="scss" scoped>
-@use "@/assets/styles/variables" as vars;
-@use "@/assets/styles/mixins" as *; // mixins は as * で使う
+@use '@/assets/styles/variables' as vars;
+@use '@/assets/styles/mixins' as *; // mixins は as * で使う
 
 .nav {
   display: flex;
@@ -82,10 +78,7 @@ function closeMenu() {
   @include sp {
     .hamburger {
       display: block;
-      position: fixed;
-      top: 15px;
-      right: 15px;
-      font-size: 28px;
+      font-size: vw(28);
       border: none;
       cursor: pointer;
       z-index: 1200;
@@ -111,6 +104,9 @@ function closeMenu() {
       z-index: 1100;
       a {
         font-size: vw(24);
+        display: block;
+        width: 100%;
+        padding: 2vw 0;
       }
       &.open {
         opacity: 1;
@@ -136,7 +132,4 @@ function closeMenu() {
     }
   }
 }
-
-
-
 </style>

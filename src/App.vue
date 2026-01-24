@@ -1,23 +1,22 @@
 <template>
   <Header />
 
-  <Loading
-    v-if="isLoading"
-    @finished="onLoadingFinished"
-  />
+  <Loading v-if="isLoading" @finished="onLoadingFinished" />
 
   <main class="app-main">
     <router-view />
-  </main>
 
-  <!-- トップページだけ再生ボタン表示 -->
-  <button
-    v-if="!isLoading && route.path === '/'"
-    class="loading_btn"
-    @click="loadingPlayback"
-  >
-    もういちどたいけんする
-  </button>
+    <div class="flex-center" v-if="!isLoading && route.path === '/'">
+      <!-- トップページだけ再生ボタン表示 -->
+      <button class="loading_btn btn" @click="loadingPlayback">
+        もういちどたいけんする
+      </button>
+      <!-- about に遷移するボタン -->
+      <router-link to="/about" class="about_btn btn">
+        ボールであそぶ
+      </router-link>
+    </div>
+  </main>
 </template>
 
 <script setup>
@@ -53,28 +52,55 @@ function loadingPlayback() {
 </script>
 
 <style lang="scss" scoped>
-@use "@/assets/styles/variables" as vars;
-@use "@/assets/styles/mixins" as *;
-.loading_btn {
-  font-size: 12px;
-  color: #fff;
-  background: #d1b38a;
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  padding: 5px 10px;
-  border-radius: 20px;
-  border: none;
-  z-index: 999;
-  cursor: pointer;
-  &:hover {
-    opacity: .7;
+@use '@/assets/styles/variables' as vars;
+@use '@/assets/styles/mixins' as *;
+.app-main {
+  flex-direction: column;
+}
+
+.flex-center {
+  width: 1200px;
+  margin: 0 auto;
+  @include flex-center;
+  justify-content: flex-end;
+  gap: 20px;
+  padding-top: 10px;
+
+  .btn {
+    font-size: 13px;
+    line-height: 1;
+    color: #fff;
+    background: #d1b38a;
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: none;
+    z-index: 999;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    &.loading_btn {
+    }
+    &.about_btn {
+    }
+    &:hover {
+      opacity: 0.7;
+    }
   }
+
   @include sp {
-    bottom: 1vw;
-    right: 5vw;
-    padding: 1vw 2vw;
-    font-size: vw(14);
+    width: 100%;
+    justify-content: flex-end;
+    gap: vw(50);
+    padding-top: 0;
+    .btn {
+      padding: 2vw;
+      font-size: vw(14);
+      &.loading_btn {
+      }
+      &.about_btn {
+      }
+    }
   }
 }
 </style>

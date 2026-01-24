@@ -1,32 +1,30 @@
 <template>
   <div class="drawing-area">
-  <Toolbar
-    v-model:showColorPicker="showColorPicker"
-    v-model:isEraser="isEraser"
-    v-model:brushSize="brushSize"
-    v-model:eraserSize="eraserSize"
-    v-model:isPainting="isPainting"
-    :recentColors="colorStore.recentColors"
-    :undo="undoFn"
-    :redo="redoFn"
-    :saveImage="saveImageFn"
-    @randomCharacter="changeRandomCharacter"
-  />
-
-
-  <CanvasManager
-    ref="canvasManagerRef"
-    :characters="characters"
-    :is-eraser="isEraser"
-    :brush-size="brushSize"
-    :eraser-size="eraserSize"
-    :selected-color="colorStore.selectedColor"
-    @update:isPainting="isPainting = $event"
-    @closePalette="showColorPicker = false"
-    @updateUndoRedo="setUndoRedo"
-    @updateSaveImage="setSaveImage"
+    <Toolbar
+      v-model:showColorPicker="showColorPicker"
+      v-model:isEraser="isEraser"
+      v-model:brushSize="brushSize"
+      v-model:eraserSize="eraserSize"
+      v-model:isPainting="isPainting"
+      :recentColors="colorStore.recentColors"
+      :undo="undoFn"
+      :redo="redoFn"
+      :saveImage="saveImageFn"
+      @randomCharacter="changeRandomCharacter"
     />
 
+    <CanvasManager
+      ref="canvasManagerRef"
+      :characters="characters"
+      :is-eraser="isEraser"
+      :brush-size="brushSize"
+      :eraser-size="eraserSize"
+      :selected-color="colorStore.selectedColor"
+      @update:isPainting="isPainting = $event"
+      @closePalette="showColorPicker = false"
+      @updateUndoRedo="setUndoRedo"
+      @updateSaveImage="setSaveImage"
+    />
   </div>
 </template>
 
@@ -40,21 +38,21 @@ import { useColorStore } from '@/stores/useColorStore';
 const colorStore = useColorStore();
 
 // 描画関連の状態
-const isPainting = ref(false);  // 描画中かどうか
-const showColorPicker = ref(false);  // カラーピッカーを表示するか
-const isEraser = ref(false);  // 消しゴムモードかどうか
-const brushSize = ref(20);  // ブラシのサイズ
-const eraserSize = ref(30);  // 消しゴムのサイズ
+const isPainting = ref(false); // 描画中かどうか
+const showColorPicker = ref(false); // カラーピッカーを表示するか
+const isEraser = ref(false); // 消しゴムモードかどうか
+const brushSize = ref(20); // ブラシのサイズ
+const eraserSize = ref(30); // 消しゴムのサイズ
 
 // キャラクター関連
-const characters = ref([]);  // 描画対象のキャラクター
+const characters = ref([]); // 描画対象のキャラクター
 
 // Undo/Redo 関連の関数
-const undoFn = ref(null);  // Undo関数
-const redoFn = ref(null);  // Redo関数
+const undoFn = ref(null); // Undo関数
+const redoFn = ref(null); // Redo関数
 
 // 画像保存機能
-const saveImageFn = ref(() => {});  // 保存用の関数
+const saveImageFn = ref(() => {}); // 保存用の関数
 
 // -----------------------
 // Undo/Redoの設定
@@ -82,12 +80,11 @@ const canvasManagerRef = ref(null);
 function changeRandomCharacter() {
   canvasManagerRef.value?.changeRandomCharacter();
 }
-
 </script>
 
 <style lang="scss" scoped>
-@use "@/assets/styles/variables" as vars;
-@use "@/assets/styles/mixins" as *;
+@use '@/assets/styles/variables' as vars;
+@use '@/assets/styles/mixins' as *;
 .drawing-area {
   position: relative;
   width: 1200px;
@@ -101,7 +98,6 @@ function changeRandomCharacter() {
   }
 }
 
-
 .canvas-container {
   .line {
     z-index: 2;
@@ -110,5 +106,4 @@ function changeRandomCharacter() {
     z-index: 1;
   }
 }
-
 </style>
