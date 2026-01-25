@@ -67,6 +67,8 @@ function loadingPlayback() {
   padding-top: 10px;
 
   .btn {
+    font-family: vars.$yomogi;
+    font-weight: bold;
     font-size: 13px;
     line-height: 1;
     color: #fff;
@@ -79,10 +81,6 @@ function loadingPlayback() {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
-    &.loading_btn {
-    }
-    &.about_btn {
-    }
     &:hover {
       opacity: 0.7;
     }
@@ -96,10 +94,6 @@ function loadingPlayback() {
     .btn {
       padding: 2vw;
       font-size: vw(14);
-      &.loading_btn {
-      }
-      &.about_btn {
-      }
     }
   }
 }

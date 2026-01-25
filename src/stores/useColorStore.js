@@ -3,8 +3,8 @@ import { ref } from 'vue';
 
 export const useColorStore = defineStore('color', () => {
   // デフォルト色：ピンク
-  const selectedColor = ref({ r: 255, g: 0, b: 255, a: 1 });
-  
+  const selectedColor = ref({ r: 242, g: 165, b: 160, a: 1 });
+
   // 最近使用した色の履歴
   const recentColors = ref([]);
 
@@ -27,7 +27,8 @@ export const useColorStore = defineStore('color', () => {
 
     // 既存の色を探す
     const index = recentColors.value.findIndex(
-      (c) => c.r === color.r && c.g === color.g && c.b === color.b && c.a === color.a
+      (c) =>
+        c.r === color.r && c.g === color.g && c.b === color.b && c.a === color.a
     );
 
     // すでに先頭にあれば何もしない
