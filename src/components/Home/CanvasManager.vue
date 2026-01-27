@@ -81,6 +81,7 @@ const minScale = 1;
 const maxScale = 3;
 const isMobile = ref(window.innerWidth <= 768);
 let isPinching = false;
+let pendingDraw = false;
 
 // ==================================================
 // ブラシカーソル表示制御
@@ -129,17 +130,19 @@ function getPinchCenter(touches) {
 // タッチ開始（描画 or ピンチ開始）
 function handleTouchStart(e) {
   if (e.touches.length === 1) {
-    // 1本指 → 描画開始
+    // まだ描画開始しない（Android対策）
+    pendingDraw = true;
+
+    // ★ カーソルだけは即表示・追従させる
     updateCursorPosition(e, {
       canvasRect: paintCanvas.value.getBoundingClientRect(),
       panX: panX.value,
       panY: panY.value,
       scale: scale.value,
     });
-
-    startDrawing(e);
   } else if (e.touches.length === 2) {
-    // 2本指でも描画中ならズームはしない
+    hideCursor();
+    pendingDraw = false;
     if (!isPainting.value) {
       isPinching = true;
       lastPinchDistance = getPinchDistance(e.touches);
@@ -150,6 +153,28 @@ function handleTouchStart(e) {
 
 // 描画 or 拡大縮小
 function handleTouchMove(e) {
+  if (pendingDraw && e.touches.length === 1) {
+    updateCursorPosition(e, {
+      canvasRect: paintCanvas.value.getBoundingClientRect(),
+      panX: panX.value,
+      panY: panY.value,
+      scale: scale.value,
+    });
+  }
+  // 1本指が確定したらここで描画開始
+  if (pendingDraw && e.touches.length === 1 && !isPinching) {
+    pendingDraw = false;
+
+    updateCursorPosition(e, {
+      canvasRect: paintCanvas.value.getBoundingClientRect(),
+      panX: panX.value,
+      panY: panY.value,
+      scale: scale.value,
+    });
+
+    startDrawing(e);
+  }
+
   if (isPainting.value) {
     // 描画中は常に描く
     if (e.touches.length >= 1) {
@@ -191,6 +216,7 @@ function handleTouchMove(e) {
 
 // タッチ終了処理
 function handleTouchEnd(e) {
+  pendingDraw = false;
   // タッチ終了時の処理
   if (e.touches.length < 2) {
     isPinching = false;
