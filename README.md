@@ -1,5 +1,80 @@
-# Vue 3 + Vite
+# fun-toys
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+子ども向けの「触って楽しい」「挙動で伝わる」体験をテーマにした  
+Vueを用いた、インタラクティブWebアプリの個人制作です。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## Demo
+https://playful-color.github.io/fun-toys/#/
+
+※スマートフォン（特にiPhone）での操作を想定して実装しています。
+
+## 概要
+
+幼児〜小学生を対象に、遊び体験をテーマにした
+Vue製のインタラクティブWebアプリです。
+
+直感的な操作と視覚的フィードバックを重視した  
+おもちゃ感覚のUI・インタラクションを実装しています。
+
+- ぬり絵機能（Canvas）
+- ボールを使ったインタラクション
+- 色・音・動きのランダム要素
+
+## UI / UX設計について
+
+幼児と小学生では操作理解や反応速度が異なるため、  
+年齢差を意識したUI・インタラクション設計を行っています。
+
+- 幼児向け：  
+  - 触るとすぐ音やボールが反応する・同時押しでも壊れない
+  - 視覚的に分かりやすい変化を重視
+- 小学生向け：  
+  - 試行錯誤できる挙動
+  - 押せそうで押せない、追いかけたくなる動きなど
+    「遊び」が生まれる挙動を意識
+
+## UX / インタラクション設計のポイント
+
+- 説明を読まなくても操作できることを前提に、
+  タップ・ドラッグ・視覚的な反応のみで完結する設計を意識しました。
+
+- 子どもが予想外の操作をすることを想定し、
+  意図しない挙動が「遊び」として成立するように調整しています。
+
+- スマートフォンでの利用を重視し、
+  iPhone特有の挙動差やパフォーマンス問題に対応するため、
+  DOMベースの実装からCanvas描画へ切り替えました。
+  
+## 技術スタック
+
+- Vue 3
+- Vite
+- Canvas API
+- Pinia
+- JavaScript
+- SCSS
+
+## 開発背景
+
+学習目的の個人制作として取り組むにあたり、  
+単なるデモではなく「実際に誰かが使って楽しめるもの」を作りたいと考えました。
+
+身近なユーザーである子どもたちの反応を見ながら、  
+直感的な操作性や視覚的なフィードバックを重視した  
+UI・インタラクションの試作を行っています。
+
+## 現在の状況
+
+- フィードバックを受けながら改善中
+- スマートフォン端末差異（特にiPhone / Android）の挙動調整を実施
+- UI構成・管理分離の見直しを進行中
+
+## 今後の予定
+
+- コードのリファクタリング
+- 管理ロジックの整理
+- UI調整・追加機能の検討
+- Color Picker（chromepicker）に変更検討
+
+※機能追加前に、可読性と保守性を優先して整理を行う予定です。
+
