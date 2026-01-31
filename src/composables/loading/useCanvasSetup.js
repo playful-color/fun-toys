@@ -1,4 +1,3 @@
-// /composables/useCanvasSetup.js
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 export function useCanvasSetup() {
@@ -8,15 +7,21 @@ export function useCanvasSetup() {
   const height = ref(window.innerHeight);
   const isMobile = ref(false);
 
+  // ==================================================
+  // Canvasの初期化
+  // ==================================================
+
   function initCanvas() {
     if (!canvasRef.value) return;
     ctx.value = canvasRef.value.getContext('2d', { willReadFrequently: true });
     width.value = canvasRef.value.width = window.innerWidth;
     height.value = canvasRef.value.height = window.innerHeight;
-
-    // モバイル判定
     isMobile.value = window.matchMedia('(pointer: coarse)').matches;
   }
+
+  // ==================================================
+  // ウィンドウサイズ変更時の処理
+  // ==================================================
 
   function handleResize() {
     if (!canvasRef.value) return;
@@ -24,6 +29,9 @@ export function useCanvasSetup() {
     height.value = canvasRef.value.height = window.innerHeight;
   }
 
+  // ==================================================
+  // ライフサイクル処理
+  // ==================================================
   onMounted(() => {
     initCanvas();
     window.addEventListener('resize', handleResize);
@@ -33,6 +41,9 @@ export function useCanvasSetup() {
     window.removeEventListener('resize', handleResize);
   });
 
+  // ==================================================
+  // 戻り値
+  // ==================================================
   return {
     canvasRef,
     ctx,
