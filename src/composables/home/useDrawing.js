@@ -1,74 +1,32 @@
-import { ref, watch, onMounted } from 'vue';
-import { useColorStore } from '@/stores/useColorStore';
-import { usePainterStore } from '@/stores/usePainterStore';
+import { ref } from 'vue';
 
-export function usePainter({
+export function useDrawing({
   paintCanvas,
   isEraser,
   brushSize,
   eraserSize,
-  selectedColor,
   scale,
   panX,
   panY,
-  updateBrushCursor,
+  colorStore,
+  painterStore,
   cursorPos,
   isMobile,
+  getEventPos,
 }) {
-  const colorStore = useColorStore();
-  const painterStore = usePainterStore();
-
   const isPainting = ref(false);
   const currentStroke = ref(null);
   const isDrawing = ref(false);
 
-  //const lastPinchDistance = ref(null);
-  //const lastPinchCenter = ref({ x: 0, y: 0 });
-  //const isPinching = ref(false);
-
-  const initialScale = ref(1); // 初期スケール
-  const maxScale = 4; // 最大ズーム倍率
-
   // ==================================================
-  // 座標取得関数 -- useCoordinate 予定
+  // 描画処理
   // ==================================================
 
-  // イベントから座標を取得する関数
-  function getEventPos(e) {
-    const rect = paintCanvas.value.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    // scale/panを考慮してキャンバス内部座標に変換
-    return {
-      x: (clientX - rect.left - panX.value) / scale.value,
-      y: (clientY - rect.top - panY.value) / scale.value,
-    };
-  }
-
-  // 座標をタッチ用に変換する関数
-  function getTransformedPos(e) {
-    const s = scale?.value || 1;
-    const rect = paintCanvas.value.getBoundingClientRect();
-    return e.touches && e.touches.length > 0
-      ? {
-          x: (e.touches[0].clientX - rect.left) / s,
-          y: (e.touches[0].clientY - rect.top) / s,
-        }
-      : { x: e.offsetX / s, y: e.offsetY / s };
-  }
-
-  // ==================================================
-  // 描画処理関数
-  // ==================================================
-
-  // 描画（ブラシまたは消しゴムで）
+  // 描画処理を行う関数。ブラシや消しゴムで描画を行う。
   function paint(pos) {
     if (!currentStroke.value) return;
     const { x, y } = pos;
     const ctx = paintCanvas.value.getContext('2d');
-
-    // カーソルに合わせる半径
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const radius = baseSize * 0.3;
     const color = isEraser.value ? null : colorStore.selectedColor;
@@ -110,7 +68,7 @@ export function usePainter({
       currentStroke.value.color = { ...colorStore.selectedColor };
   }
 
-  // 描画を再描画する関数
+  // 描画状態をリセット・再描画
   function redrawPaint() {
     if (!paintCanvas.value) return;
     const ctx = paintCanvas.value.getContext('2d');
@@ -129,7 +87,7 @@ export function usePainter({
     if (currentStroke.value) drawStroke(ctx, currentStroke.value);
   }
 
-  // ストロークを描画する関数
+  // ストローク描画
   function drawStroke(ctx, stroke) {
     ctx.globalCompositeOperation = stroke.isEraser
       ? 'destination-out'
@@ -147,10 +105,10 @@ export function usePainter({
   }
 
   // ==================================================
-  // 描画状態管理関数　-- useDrawing　予定
+  // 描画操作
   // ==================================================
 
-  // 描画開始
+  // 描画を開始する関数
   function startDrawing(e) {
     if (isDrawing.value || (e.pointerType === 'mouse' && e.buttons !== 1))
       return;
@@ -172,23 +130,22 @@ export function usePainter({
     };
   }
 
-  // 描画中の移動
+  // 描画中に移動した際の処理
   function draw(e) {
     if (!isDrawing.value) return;
 
     let pos;
     if (isMobile.value && e.touches) {
-      // 塗りはサークル位置（offsetは反映済み）
       pos = { ...cursorPos.value };
     } else {
-      pos = getEventPos(e); // PCはそのまま
+      pos = getEventPos(e);
     }
 
     paint(pos);
     redrawPaint();
   }
 
-  // 描画終了
+  // 描画を終了する関数
   function stopDrawing() {
     if (!isDrawing.value) return;
 
@@ -206,61 +163,10 @@ export function usePainter({
     redrawPaint();
   }
 
-  // 描画をリセット
-  function resetPaint() {
-    painterStore.strokes = [];
-    painterStore.strokeIndex = -1;
-    painterStore.currentStroke = null;
-    localStorage.removeItem('painterStrokes');
-
-    // paintCanvas を完全にクリア
-    if (paintCanvas.value) {
-      const ctx = paintCanvas.value.getContext('2d');
-      ctx.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
-    }
-  }
-
-  // ==================================================
-  // Undo/Redo操作関数 -- useUndoRedo 予定
-  // ==================================================
-
-  function undo() {
-    painterStore.undo();
-    redrawPaint();
-  }
-
-  function redo() {
-    painterStore.redo();
-    redrawPaint();
-  }
-
-  // ==================================================
-  // 初期化・リサイズ処理
-  // ==================================================
-
-  painterStore.restore();
-  redrawPaint();
-
-  // スケールやパンの変更時に再描画
-  watch([scale, panX, panY], () => {
-    redrawPaint();
-  });
-
-  // 初期スケールを保存
-  onMounted(() => {
-    initialScale.value = scale.value;
-  });
-
-  // ==================================================
-  // 返り値
-  // ==================================================
   return {
     isPainting,
     startDrawing,
     draw,
     stopDrawing,
-    undo,
-    redo,
-    resetPaint,
   };
 }

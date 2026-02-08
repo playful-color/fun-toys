@@ -2,13 +2,12 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 export const usePainterStore = defineStore('painter', () => {
-  
   // 描画状態
   const isPainting = ref(false);
 
   // ストロークの履歴
   const strokes = ref([]);
-  
+
   // 現在のストロークインデックス
   const strokeIndex = ref(-1);
 
@@ -25,13 +24,14 @@ export const usePainterStore = defineStore('painter', () => {
   // 描画状態を保存する関数
   function save() {
     try {
-      localStorage.setItem('painterStrokes', JSON.stringify({
-        strokes: strokes.value,
-        strokeIndex: strokeIndex.value
-      }));
-    } catch (error) {
-
-    }
+      localStorage.setItem(
+        'painterStrokes',
+        JSON.stringify({
+          strokes: strokes.value,
+          strokeIndex: strokeIndex.value,
+        })
+      );
+    } catch (error) {}
   }
 
   // 描画状態を復元する関数
@@ -43,9 +43,7 @@ export const usePainterStore = defineStore('painter', () => {
       const data = JSON.parse(raw);
       strokes.value = data.strokes || [];
       strokeIndex.value = data.strokeIndex ?? strokes.value.length - 1;
-    } catch (error) {
-
-    }
+    } catch (error) {}
   }
 
   // 描画履歴をクリアする関数
@@ -84,7 +82,6 @@ export const usePainterStore = defineStore('painter', () => {
     save();
   }
 
-
   return {
     isPainting,
     startPainting,
@@ -96,6 +93,6 @@ export const usePainterStore = defineStore('painter', () => {
     redo,
     //clear,
     save,
-    restore
+    restore,
   };
 });

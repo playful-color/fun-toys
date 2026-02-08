@@ -24,8 +24,9 @@
 <script setup>
 // 管理分け予定
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useBrushCursor } from '@/composables/useBrushCursor';
-import { usePainter } from '@/composables/usePainter';
+import { useBrushCursor } from '@/composables/home/useBrushCursor';
+import { usePainter } from '@/composables/home/usePainter';
+import { useCanvas } from '@/composables/home/useCanvas';
 
 defineExpose({
   changeRandomCharacter,
@@ -228,47 +229,26 @@ function handleTouchEnd(e) {
   }
 }
 
-// ==================================================
-// キャンバス移動量の制限
-// ==================================================
+const { resizeCanvasToWrapper, clampPan, redrawLineCanvas } = useCanvas(
+  props,
+  canvasWrapper,
+  lineCanvas,
+  paintCanvas,
+  scale,
+  panX,
+  panY
+);
 
-// キャンバスが表示領域からはみ出さないようにする
-function clampPan() {
-  const viewport = canvasWrapper.value?.parentElement;
-  if (!viewport || !lineCanvas.value) return;
-
-  const viewW = viewport.clientWidth;
-  const viewH = viewport.clientHeight;
-
-  const contentW = lineCanvas.value.width * scale.value;
-  const contentH = lineCanvas.value.height * scale.value;
-
-  const minX = Math.min(0, viewW - contentW);
-  const minY = Math.min(0, viewH - contentH);
-
-  panX.value = Math.min(0, Math.max(panX.value, minX));
-  panY.value = Math.min(0, Math.max(panY.value, minY));
+// リサイズ時のまとめ処理
+function handleResize() {
+  resizeCanvasToWrapper();
+  props.characters.forEach((ch) => {
+    centerCharacter(ch);
+  });
+  drawAllCharacters();
 }
-
-// ==================================================
-// 線画キャンバスの描画処理
-// ==================================================
 
 // 拡大・移動を反映して再描画
-function redrawLineCanvas() {
-  if (!lineCanvas.value) return;
-  const ctx = lineCanvas.value.getContext('2d');
-
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, lineCanvas.value.width, lineCanvas.value.height);
-  ctx.setTransform(scale.value, 0, 0, scale.value, panX.value, panY.value);
-
-  props.characters.forEach((ch) => {
-    if (ch.img.complete) {
-      ctx.drawImage(ch.img, ch.x, ch.y, ch.width, ch.height);
-    }
-  });
-}
 watch([scale, panX, panY], () => {
   redrawLineCanvas();
 });
@@ -295,59 +275,6 @@ function centerCharacter(ch) {
 
   ch.x = (canvasW - ch.width) / 2;
   ch.y = (canvasH - ch.height) / 2;
-}
-
-// ==================================================
-// Canvasサイズ調整
-// ==================================================
-
-// wrapperサイズに合わせてCanvasをリサイズ
-function resizeCanvasToWrapper({ force = false } = {}) {
-  if (!canvasWrapper.value) return;
-
-  const rect = canvasWrapper.value.getBoundingClientRect();
-  const width = rect.width;
-  const height = rect.height;
-
-  lineCanvas.value.width = width;
-  lineCanvas.value.height = height;
-  // paintCanvas は初期ロード時に保持したいので、既存内容を一時保存
-  const savedPaint = paintCanvas.value.toDataURL();
-  paintCanvas.value.width = width;
-  paintCanvas.value.height = height;
-  const imgPaint = new Image();
-  imgPaint.src = savedPaint;
-  imgPaint.onload = () => {
-    const ctx = paintCanvas.value.getContext('2d');
-    ctx.drawImage(
-      imgPaint,
-      0,
-      0,
-      paintCanvas.value.width,
-      paintCanvas.value.height
-    );
-  };
-
-  if (force) {
-    lineCanvas.value.width = width;
-    lineCanvas.value.height = height;
-    paintCanvas.value.width = width;
-    paintCanvas.value.height = height;
-  }
-
-  lineCanvas.value.style.width = `${width}px`;
-  lineCanvas.value.style.height = `${height}px`;
-  paintCanvas.value.style.width = `${width}px`;
-  paintCanvas.value.style.height = `${height}px`;
-}
-
-// リサイズ時のまとめ処理
-function handleResize() {
-  resizeCanvasToWrapper();
-  props.characters.forEach((ch) => {
-    centerCharacter(ch);
-  });
-  drawAllCharacters();
 }
 
 // ==================================================
