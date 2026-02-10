@@ -26,7 +26,9 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useBrushCursor } from '@/composables/home/useBrushCursor';
 import { usePainter } from '@/composables/home/usePainter';
 import { useCanvas } from '@/composables/home/useCanvas';
+import { useCharacterRenderer } from '@/composables/home/useCharacterRenderer';
 import { useCharacterImage } from '@/composables/home/useCharacterImage';
+import { useTouchGestures } from '@/composables/home/useTouchGestures';
 
 // ==================================================
 // Props & Emits
@@ -57,20 +59,12 @@ const scale = ref(1);
 const initialScale = ref(1);
 const panX = ref(0);
 const panY = ref(0);
-const minScale = 1;
-const maxScale = 3;
 const isMobile = ref(window.innerWidth <= 768);
-
-let isPinching = false;
-let pendingDraw = false;
-let lastPinchDistance = null;
-let lastPinchCenter = null;
 
 // ==================================================
 // キャラクター画像管理
 // ==================================================
 const {
-  currentImage,
   loadRandomCharacterOnce,
   changeRandomCharacter,
   ensureCharacterMatchesDevice,
@@ -98,28 +92,14 @@ defineExpose({
 // キャラクター位置調整
 // ==================================================
 
-// キャラクターをキャンバス中央に配置
-function centerCharacter(ch) {
-  const canvasW = lineCanvas.value.width;
-  const canvasH = lineCanvas.value.height;
-  ch.x = (canvasW - ch.width) / 2;
-  ch.y = (canvasH - ch.height) / 2;
-}
-
-// 全キャラクターを描画
-function drawAllCharacters() {
-  if (!lineCtx) return;
-  lineCtx.clearRect(0, 0, lineCanvas.value.width, lineCanvas.value.height);
-  props.characters.forEach((ch) => {
-    if (ch.img.complete)
-      lineCtx.drawImage(ch.img, ch.x, ch.y, ch.width, ch.height);
+const { initCtx, centerAllCharacters, drawAllCharacters } =
+  useCharacterRenderer({
+    characters: props.characters,
+    lineCanvas,
+    scale,
+    panX,
+    panY,
   });
-}
-
-// 拡大・移動を反映して再描画
-watch([scale, panX, panY], () => {
-  redrawLineCanvas();
-});
 
 // ==================================================
 // ブラシカーソル
@@ -149,7 +129,7 @@ const {
 // ==================================================
 // Painter & Canvas 操作
 // ==================================================
-const { resizeCanvasToWrapper, clampPan, redrawLineCanvas } = useCanvas(
+const { resizeCanvasToWrapper, clampPan } = useCanvas(
   props,
   canvasWrapper,
   lineCanvas,
@@ -163,135 +143,13 @@ let startDrawing, draw, stopDrawing, isPainting, undo, redo, resetPaint;
 let lineCtx = null;
 
 // ==================================================
-// タッチ操作・ピンチ操作 -- 責務分離 予定
-// ==================================================
-
-// 2点間の距離を計算
-function getPinchDistance(touches) {
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-// ピンチ中心を計算
-function getPinchCenter(touches) {
-  return {
-    x: (touches[0].clientX + touches[1].clientX) / 2,
-    y: (touches[0].clientY + touches[1].clientY) / 2,
-  };
-}
-
-// タッチ開始（描画 or ピンチ開始）
-function handleTouchStart(e) {
-  if (e.touches.length === 1) {
-    // まだ描画開始しない（Android対策）
-    pendingDraw = true;
-
-    // ★ カーソルだけは即表示・追従させる
-    updateCursorPosition(e, {
-      canvasRect: paintCanvas.value.getBoundingClientRect(),
-      panX: panX.value,
-      panY: panY.value,
-      scale: scale.value,
-    });
-  } else if (e.touches.length === 2) {
-    hideCursor();
-    pendingDraw = false;
-    if (!isPainting.value) {
-      isPinching = true;
-      lastPinchDistance = getPinchDistance(e.touches);
-      lastPinchCenter = getPinchCenter(e.touches);
-    }
-  }
-}
-
-// 描画 or 拡大縮小
-function handleTouchMove(e) {
-  if (pendingDraw && e.touches.length === 1) {
-    updateCursorPosition(e, {
-      canvasRect: paintCanvas.value.getBoundingClientRect(),
-      panX: panX.value,
-      panY: panY.value,
-      scale: scale.value,
-    });
-  }
-  // 1本指が確定したらここで描画開始
-  if (pendingDraw && e.touches.length === 1 && !isPinching) {
-    pendingDraw = false;
-
-    updateCursorPosition(e, {
-      canvasRect: paintCanvas.value.getBoundingClientRect(),
-      panX: panX.value,
-      panY: panY.value,
-      scale: scale.value,
-    });
-
-    startDrawing(e);
-  }
-
-  if (isPainting.value) {
-    // 描画中は常に描く
-    if (e.touches.length >= 1) {
-      updateCursorPosition(e, {
-        canvasRect: paintCanvas.value.getBoundingClientRect(),
-        panX: panX.value,
-        panY: panY.value,
-        scale: scale.value,
-      });
-      draw(e);
-    }
-    return; // ピンチズームは無視
-  }
-
-  // 描画中でなければ通常のピンチ処理
-  if (isPinching && e.touches.length === 2) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const newDistance = getPinchDistance(e.touches);
-    const newCenter = getPinchCenter(e.touches);
-
-    let delta = newDistance / lastPinchDistance;
-    let newScale = scale.value * delta;
-    newScale = Math.max(initialScale.value, Math.min(maxScale, newScale));
-
-    const ratio = newScale / scale.value;
-
-    panX.value = (panX.value - lastPinchCenter.x) * ratio + newCenter.x;
-    panY.value = (panY.value - lastPinchCenter.y) * ratio + newCenter.y;
-
-    scale.value = newScale;
-    clampPan();
-
-    lastPinchDistance = newDistance;
-    lastPinchCenter = newCenter;
-  }
-}
-
-// タッチ終了処理
-function handleTouchEnd(e) {
-  pendingDraw = false;
-  // タッチ終了時の処理
-  if (e.touches.length < 2) {
-    isPinching = false;
-    lastPinchDistance = null;
-    lastPinchCenter = null;
-  }
-  if (e.touches.length === 0) {
-    hideCursor();
-    stopDrawing();
-  }
-}
-
-// ==================================================
 // リサイズ & 端末切替
 // ==================================================
 function handleResize() {
   resizeCanvasToWrapper();
-  props.characters.forEach((ch) => {
-    centerCharacter(ch);
-  });
+  centerAllCharacters();
   drawAllCharacters();
+  updateBrushCursor();
 }
 
 // 端末変更時の再初期化
@@ -307,7 +165,7 @@ function switchDevice() {
       updateBrushCursor();
     },
   });
-  props.characters.forEach(centerCharacter);
+  centerAllCharacters();
 
   const img = new Image();
   img.src = paintData;
@@ -366,7 +224,7 @@ let onResize;
 onMounted(() => {
   lineCtx = lineCanvas.value.getContext('2d');
   initialScale.value = scale.value;
-
+  initCtx();
   handleResize();
 
   const painter = usePainter({
@@ -392,6 +250,35 @@ onMounted(() => {
   redo = painter.redo;
   resetPaint = painter.resetPaint;
 
+  // タッチ操作・ピンチ操作
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } =
+    useTouchGestures({
+      paintCanvas,
+      startDrawing,
+      draw,
+      stopDrawing,
+      isPainting: isPainting,
+      updateCursorPosition,
+      hideCursor,
+      panX,
+      panY,
+      scale,
+      clampPan,
+    });
+
+  canvasWrapper.value.addEventListener('touchstart', handleTouchStart, {
+    passive: false,
+  });
+  canvasWrapper.value.addEventListener('touchmove', handleTouchMove, {
+    passive: false,
+  });
+  canvasWrapper.value.addEventListener('touchend', handleTouchEnd, {
+    passive: false,
+  });
+  canvasWrapper.value.addEventListener('touchcancel', handleTouchEnd, {
+    passive: false,
+  });
+
   emit('updateUndoRedo', { undo, redo });
   emit('updateSaveImage', saveImage);
 
@@ -411,12 +298,6 @@ onMounted(() => {
     updateBrushCursor();
   };
 
-  const el = canvasWrapper.value;
-  el.addEventListener('touchstart', handleTouchStart, { passive: false });
-  el.addEventListener('touchmove', handleTouchMove, { passive: false });
-  el.addEventListener('touchend', handleTouchEnd, { passive: false });
-  el.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-
   onResize = () => {
     const wasMobile = isMobile.value;
     isMobile.value = window.innerWidth <= 768;
@@ -426,8 +307,6 @@ onMounted(() => {
       ensureCharacterMatchesDevice(props.characters, changeRandomCharacter);
     }
   };
-  window.addEventListener('resize', onResize);
-  window.addEventListener('orientationchange', onResize);
 });
 
 onUnmounted(() => {
@@ -435,8 +314,6 @@ onUnmounted(() => {
     window.removeEventListener('resize', onResize);
     window.removeEventListener('orientationchange', onResize);
   }
-  window.removeEventListener('resize', handleResizeDevice);
-  window.removeEventListener('orientationchange', handleResizeDevice);
 });
 </script>
 
