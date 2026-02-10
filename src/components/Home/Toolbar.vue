@@ -97,6 +97,7 @@
       <button
         @touchstart.prevent="emit('randomCharacter')"
         @click.prevent="emit('randomCharacter')"
+        :disabled="isPainting"
         class="icon-button"
       >
         <font-awesome-icon icon="dice" />
