@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"]
+    },
     "strict": true,
     "moduleResolution": "Node",
     "esModuleInterop": true,
-    "allowJs": true, // ← JSファイルも読み込む
+    "allowJs": false,
     "checkJs": false,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
