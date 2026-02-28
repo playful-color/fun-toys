@@ -1,4 +1,23 @@
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, Ref } from 'vue';
+
+interface Color {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+interface Position {
+  x: number;
+  y: number;
+}
+
+interface CanvasRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 
 export function useBrushCursor({
   isEraser,
@@ -11,17 +30,31 @@ export function useBrushCursor({
   panY,
   scale,
   isPinching,
+}: {
+  isEraser: Ref<boolean>;
+  brushSize: Ref<number>;
+  eraserSize: Ref<number>;
+  selectedColor: Ref<Color>;
+  isMobile: Ref<boolean>;
+  canvasRect: Ref<CanvasRect>;
+  panX: Ref<number>;
+  panY: Ref<number>;
+  scale: Ref<number>;
+  isPinching: Ref<boolean | null>;
 }) {
-  const brushCursor = ref('crosshair');
-  const cursorPos = ref({ x: 0, y: 0 });
-  const cursorVisible = ref(false);
+  const brushCursor = ref<string>('crosshair');
+  const cursorPos = ref<Position>({ x: 0, y: 0 });
+  const cursorVisible = ref<boolean>(false);
 
   // ==================================================
   // PCカーソル
   // ==================================================
 
   // PC用のカスタム円形カーソルを作成する関数
-  function createCircleCursor(size, options = {}) {
+  function createCircleCursor(
+    size: number,
+    options: { color?: string; dashed?: boolean } = {}
+  ): string {
     const { color = 'rgba(0,0,0,0.6)', dashed = false } = options;
     const radius = size * 0.3;
     const diameter = radius * 2;
@@ -31,12 +64,14 @@ export function useBrushCursor({
     canvas.height = diameter;
     const ctx = canvas.getContext('2d');
 
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.setLineDash(dashed ? [4, 4] : []);
-    ctx.beginPath();
-    ctx.arc(radius, radius, radius - 1, 0, Math.PI * 2);
-    ctx.stroke();
+    if (ctx) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash(dashed ? [4, 4] : []);
+      ctx.beginPath();
+      ctx.arc(radius, radius, radius - 1, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     return `url(${canvas.toDataURL()}) ${radius} ${radius}, auto`;
   }
@@ -47,13 +82,18 @@ export function useBrushCursor({
 
   // モバイルデバイス上でタッチイベントに基づいてカーソル位置を更新する関数
   function updateCursorPosition(
-    touchEvent,
-    { canvasRect: rect, panX: pan, panY: panYVal, scale: s }
+    touchEvent: TouchEvent,
+    {
+      canvasRect: rect,
+      panX: pan,
+      panY: panYVal,
+      scale: s,
+    }: { canvasRect: CanvasRect; panX: number; panY: number; scale: number }
   ) {
     if (!isMobile.value || touchEvent.touches.length === 0 || isPinching?.value)
       return;
 
-    rect = rect || { left: 0, top: 0 };
+    rect = rect || { left: 0, top: 0, width: 0, height: 0 };
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const brushRadius = baseSize * 0.3;
 
@@ -86,21 +126,28 @@ export function useBrushCursor({
   const cursorStyle = computed(() => {
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const size = baseSize * 0.6;
-    const borderWidth = 2;
+    const borderWidth = 0.2;
 
     const color = isEraser.value
-      ? 'rgba(80,80,80,0.8)'
-      : `rgba(${selectedColor.value.r},${selectedColor.value.g},${selectedColor.value.b},${selectedColor.value.a})`;
+      ? 'rgba(80,80,80,0.8)' // 消しゴムの色
+      : `rgba(${selectedColor.value.r},${selectedColor.value.g},${selectedColor.value.b},${selectedColor.value.a})`; // 選択した色
+
+    const dashedBorder = isEraser.value
+      ? `${borderWidth}px dashed ${color}`
+      : `${borderWidth}px solid ${color}`;
+
+    const doubleDashedBorder = isEraser.value
+      ? `0 0 0 ${borderWidth * 1.5}px rgba(0,0,0,0.5)`
+      : `0 0 0 ${borderWidth * 1}px rgba(0,0,0,0.5)`;
 
     return {
       position: 'absolute',
-      left: cursorPos.value.x * scale.value + panX.value + 'px',
-      top: cursorPos.value.y * scale.value + panY.value + 'px',
+      left: `${cursorPos.value.x * scale.value + panX.value}px`,
+      top: `${cursorPos.value.y * scale.value + panY.value}px`,
       width: `${size}px`,
       height: `${size}px`,
-      border: isEraser.value
-        ? `${borderWidth}px dashed ${color}`
-        : `${borderWidth}px solid ${color}`,
+      border: dashedBorder,
+      boxShadow: doubleDashedBorder,
       borderRadius: '50%',
       pointerEvents: 'none',
       transform: 'translate(-50%, -50%)',

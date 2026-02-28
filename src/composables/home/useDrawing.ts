@@ -1,4 +1,56 @@
-import { ref } from 'vue';
+import { ref, Ref } from 'vue';
+
+interface Color {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Stroke {
+  color: Color | null;
+  points: Point[];
+  size: number;
+  isEraser: boolean;
+}
+
+interface PainterStore {
+  isPainting: boolean;
+  strokes: Stroke[];
+  strokeIndex: number;
+  addStroke(stroke: Stroke): void;
+}
+
+interface ColorStore {
+  selectedColor: Color;
+  recentColors: Color[];
+  pushRecentColor(color: Color): void;
+}
+
+interface CursorPosition {
+  x: number;
+  y: number;
+}
+
+interface UseDrawingProps {
+  paintCanvas: Ref<HTMLCanvasElement | null>;
+  isEraser: Ref<boolean>;
+  brushSize: Ref<number>;
+  eraserSize: Ref<number>;
+  scale: Ref<number>;
+  panX: Ref<number>;
+  panY: Ref<number>;
+  colorStore: ColorStore;
+  painterStore: PainterStore;
+  cursorPos: Ref<CursorPosition>;
+  isMobile: Ref<boolean>;
+  getEventPos: (e: MouseEvent | TouchEvent) => Point;
+}
 
 export function useDrawing({
   paintCanvas,
@@ -13,20 +65,21 @@ export function useDrawing({
   cursorPos,
   isMobile,
   getEventPos,
-}) {
+}: UseDrawingProps) {
   const isPainting = ref(false);
-  const currentStroke = ref(null);
+  const currentStroke = ref<Stroke | null>(null);
   const isDrawing = ref(false);
 
   // ==================================================
   // 描画処理
   // ==================================================
 
-  // 描画処理を行う関数。ブラシや消しゴムで描画を行う。
-  function paint(pos) {
+  function paint(pos: Point): void {
     if (!currentStroke.value) return;
     const { x, y } = pos;
-    const ctx = paintCanvas.value.getContext('2d');
+    const ctx = paintCanvas.value?.getContext('2d');
+    if (!ctx) return;
+
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const radius = baseSize * 0.3;
     const color = isEraser.value ? null : colorStore.selectedColor;
@@ -36,8 +89,8 @@ export function useDrawing({
       : 'source-over';
     ctx.fillStyle = isEraser.value
       ? 'rgba(0,0,0,1)'
-      : `rgba(${color.r},${color.g},${color.b},${color.a})`;
-    ctx.globalAlpha = isEraser.value ? 1 : color.a;
+      : `rgba(${color!.r},${color!.g},${color!.b},${color!.a})`; // Type assertion for non-null
+    ctx.globalAlpha = isEraser.value ? 1 : color!.a; // Type assertion for non-null
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -48,8 +101,8 @@ export function useDrawing({
       const steps = Math.ceil(Math.hypot(x - last.x, y - last.y) / 2);
       for (let i = 0; i < steps; i++) {
         const t = i / steps;
-        const ix = last.x + (x - last.x) * t + (Math.random() - 0.5) * 2;
-        const iy = last.y + (y - last.y) * t + (Math.random() - 0.5) * 2;
+        const ix = last.x + (x - last.x) * t;
+        const iy = last.y + (y - last.y) * t;
         ctx.beginPath();
         ctx.arc(ix, iy, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -68,10 +121,10 @@ export function useDrawing({
       currentStroke.value.color = { ...colorStore.selectedColor };
   }
 
-  // 描画状態をリセット・再描画
-  function redrawPaint() {
+  function redrawPaint(): void {
     if (!paintCanvas.value) return;
     const ctx = paintCanvas.value.getContext('2d');
+    if (!ctx) return;
 
     // 変換リセットしてクリア
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -87,15 +140,14 @@ export function useDrawing({
     if (currentStroke.value) drawStroke(ctx, currentStroke.value);
   }
 
-  // ストローク描画
-  function drawStroke(ctx, stroke) {
+  function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke): void {
     ctx.globalCompositeOperation = stroke.isEraser
       ? 'destination-out'
       : 'source-over';
     ctx.fillStyle = stroke.isEraser
       ? 'rgba(0,0,0,1)'
-      : `rgba(${stroke.color.r},${stroke.color.g},${stroke.color.b},${stroke.color.a})`;
-    ctx.globalAlpha = stroke.isEraser ? 1 : stroke.color.a;
+      : `rgba(${stroke.color!.r},${stroke.color!.g},${stroke.color!.b},${stroke.color!.a})`; // Type assertion for non-null
+    ctx.globalAlpha = stroke.isEraser ? 1 : stroke.color!.a; // Type assertion for non-null
 
     stroke.points.forEach((p) => {
       ctx.beginPath();
@@ -108,10 +160,8 @@ export function useDrawing({
   // 描画操作
   // ==================================================
 
-  // 描画を開始する関数
-  function startDrawing(e) {
-    if (isDrawing.value || (e.pointerType === 'mouse' && e.buttons !== 1))
-      return;
+  function startDrawing(e: MouseEvent | TouchEvent): void {
+    if (isDrawing.value || (e instanceof MouseEvent && e.buttons !== 1)) return;
 
     const pos = getEventPos(e);
     isDrawing.value = true;
@@ -130,12 +180,11 @@ export function useDrawing({
     };
   }
 
-  // 描画中に移動した際の処理
-  function draw(e) {
+  function draw(e: MouseEvent | TouchEvent): void {
     if (!isDrawing.value) return;
 
-    let pos;
-    if (isMobile.value && e.touches) {
+    let pos: Point;
+    if (isMobile.value && (e as TouchEvent).touches) {
       pos = { ...cursorPos.value };
     } else {
       pos = getEventPos(e);
@@ -145,8 +194,7 @@ export function useDrawing({
     redrawPaint();
   }
 
-  // 描画を終了する関数
-  function stopDrawing() {
+  function stopDrawing(): void {
     if (!isDrawing.value) return;
 
     isDrawing.value = false;
@@ -158,6 +206,7 @@ export function useDrawing({
       return;
     }
 
+    // 描画が完了した場合のみ保存
     painterStore.addStroke(currentStroke.value);
     currentStroke.value = null;
     redrawPaint();
