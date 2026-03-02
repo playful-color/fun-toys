@@ -1,38 +1,67 @@
+import { Ref } from 'vue';
+
+interface Character {
+  img: HTMLImageElement;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface Props {
+  characters: Character[];
+}
+
 export function useCanvas(
-  props,
-  canvasWrapper,
-  lineCanvas,
-  paintCanvas,
-  scale,
-  panX,
-  panY
+  props: Props,
+  canvasWrapper: Ref<HTMLElement | null>,
+  lineCanvas: Ref<HTMLCanvasElement | null>,
+  paintCanvas: Ref<HTMLCanvasElement | null>,
+  scale: Ref<number>,
+  panX: Ref<number>,
+  panY: Ref<number>
 ) {
-  // キャンバスのサイズを親要素（canvasWrapper）に合わせる関数
-  const resizeCanvasToWrapper = ({ force = false } = {}) => {
-    if (!canvasWrapper.value) return;
+  // ==========================================
+  // キャンバスサイズを親要素に合わせる
+  // ==========================================
+  const resizeCanvasToWrapper = (
+    { force = false }: { force?: boolean } = {}
+  ): void => {
+    if (!canvasWrapper.value || !lineCanvas.value || !paintCanvas.value)
+      return;
 
     const rect = canvasWrapper.value.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
 
+    // lineCanvas リサイズ
     lineCanvas.value.width = width;
     lineCanvas.value.height = height;
+
+    // paintCanvas の内容を保存
     const savedPaint = paintCanvas.value.toDataURL();
-    if (!savedPaint) return;
+
+    // paintCanvas リサイズ
     paintCanvas.value.width = width;
     paintCanvas.value.height = height;
-    const imgPaint = new Image();
-    imgPaint.src = savedPaint;
-    imgPaint.onload = () => {
-      const ctx = paintCanvas.value.getContext('2d');
-      ctx.drawImage(
-        imgPaint,
-        0,
-        0,
-        paintCanvas.value.width,
-        paintCanvas.value.height
-      );
-    };
+
+    if (savedPaint) {
+      const imgPaint = new Image();
+      imgPaint.src = savedPaint;
+
+      imgPaint.onload = () => {
+        const ctx = paintCanvas.value?.getContext('2d');
+        if (!ctx) return;
+
+        ctx.drawImage(
+          imgPaint,
+          0,
+          0,
+          paintCanvas.value!.width,
+          paintCanvas.value!.height
+        );
+      };
+    }
 
     if (force) {
       lineCanvas.value.width = width;
@@ -47,8 +76,10 @@ export function useCanvas(
     paintCanvas.value.style.height = `${height}px`;
   };
 
-  // パンニング（ドラッグ操作でキャンバスの位置を変更）を制限する関数
-  const clampPan = () => {
+  // ==========================================
+  // パン制限
+  // ==========================================
+  const clampPan = (): void => {
     const viewport = canvasWrapper.value?.parentElement;
     if (!viewport || !lineCanvas.value) return;
 
@@ -65,13 +96,18 @@ export function useCanvas(
     panY.value = Math.min(0, Math.max(panY.value, minY));
   };
 
-  // `lineCanvas`（線を描画するキャンバス）の内容を再描画する関数
-  const redrawLineCanvas = () => {
+  // ==========================================
+  // lineCanvas 再描画
+  // ==========================================
+  const redrawLineCanvas = (): void => {
     if (!lineCanvas.value) return;
+
     const ctx = lineCanvas.value.getContext('2d');
+    if (!ctx) return;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, lineCanvas.value.width, lineCanvas.value.height);
+
     ctx.setTransform(scale.value, 0, 0, scale.value, panX.value, panY.value);
 
     props.characters.forEach((ch) => {

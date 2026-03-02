@@ -1,28 +1,36 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
+// 色の型定義
+export interface Color {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
 export const useColorStore = defineStore('color', () => {
   // デフォルト色：ピンク
-  const selectedColor = ref({ r: 242, g: 165, b: 160, a: 1 });
+  const selectedColor = ref<Color>({ r: 242, g: 165, b: 160, a: 1 });
 
-  // 最近使用した色の履歴
-  const recentColors = ref([]);
+  // 最近使用した色の履歴（最大6色）
+  const recentColors = ref<Color[]>([]);
 
   // 選択された色を設定する関数
-  function setSelectedColor(color) {
+  function setSelectedColor(color: Color | null) {
     if (color) {
       selectedColor.value = { ...color };
     }
   }
 
   // 2つの色が同じかどうかをチェックする関数
-  function isSameColor(a, b) {
+  function isSameColor(a: Color | null, b: Color | null): boolean {
     if (!a || !b) return false;
     return a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
   }
 
   // 最近使用した色を履歴に追加
-  function pushRecentColor(color) {
+  function pushRecentColor(color: Color | null) {
     if (!color) return;
 
     // 既存の色を探す
@@ -49,5 +57,6 @@ export const useColorStore = defineStore('color', () => {
     recentColors,
     setSelectedColor,
     pushRecentColor,
+    isSameColor,
   };
 });

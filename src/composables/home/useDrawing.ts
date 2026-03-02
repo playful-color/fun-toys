@@ -74,7 +74,16 @@ export function useDrawing({
   // 描画処理
   // ==================================================
 
+  let lastDrawTime = 0;
+  const drawInterval = 16; // 16ms（約60fps）
+
   function paint(pos: Point): void {
+    const now = Date.now();
+    if (now - lastDrawTime < drawInterval) {
+      return; // 次の描画処理まで待機
+    }
+    lastDrawTime = now;
+
     if (!currentStroke.value) return;
     const { x, y } = pos;
     const ctx = paintCanvas.value?.getContext('2d');
@@ -180,20 +189,27 @@ export function useDrawing({
     };
   }
 
+  let isDrawingFrame = false;
+
   function draw(e: MouseEvent | TouchEvent): void {
     if (!isDrawing.value) return;
 
-    let pos: Point;
-    if (isMobile.value && (e as TouchEvent).touches) {
-      pos = { ...cursorPos.value };
-    } else {
-      pos = getEventPos(e);
+    if (!isDrawingFrame) {
+      isDrawingFrame = true;
+      requestAnimationFrame(() => {
+        let pos: Point;
+        if (isMobile.value && (e as TouchEvent).touches) {
+          pos = { ...cursorPos.value };
+        } else {
+          pos = getEventPos(e);
+        }
+
+        paint(pos);
+        redrawPaint();
+        isDrawingFrame = false;
+      });
     }
-
-    paint(pos);
-    redrawPaint();
   }
-
   function stopDrawing(): void {
     if (!isDrawing.value) return;
 

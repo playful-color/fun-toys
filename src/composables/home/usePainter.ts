@@ -1,9 +1,27 @@
-import { onMounted, watch, ref } from 'vue';
+import { onMounted, watch, ref, Ref } from 'vue';
 import { useColorStore } from '@/stores/useColorStore';
 import { usePainterStore } from '@/stores/usePainterStore';
 import { useCoordinate } from '@/composables/home/useCoordinate';
 import { useDrawing } from '@/composables/home/useDrawing';
 import { useRendering } from '@/composables/home/useRendering';
+
+interface UsePainterOptions {
+  paintCanvas: Ref<HTMLCanvasElement | null>;
+  isEraser: Ref<boolean>;
+  brushSize: Ref<number>;
+  eraserSize: Ref<number>;
+  selectedColor: Ref<{
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+  }>;
+  scale: Ref<number>;
+  panX: Ref<number>;
+  panY: Ref<number>;
+  cursorPos: Ref<{ x: number; y: number }>;
+  isMobile: Ref<boolean>;
+}
 
 export function usePainter({
   paintCanvas,
@@ -16,15 +34,13 @@ export function usePainter({
   panY,
   cursorPos,
   isMobile,
-}) {
+}: UsePainterOptions) {
   const colorStore = useColorStore();
   const painterStore = usePainterStore();
 
-  // ==================================================
-  // 描画操作
-  // ==================================================
-
-  // 描画再描画のための関数（スケール、パン、描画状態に応じてキャンバスを再描画）
+  // =============================
+  // 描画再描画
+  // =============================
   const { redrawPaint } = useRendering({
     paintCanvas,
     scale,
@@ -33,7 +49,9 @@ export function usePainter({
     painterStore,
   });
 
-  // 座標取得のための関数（イベントからの座標を計算）
+  // =============================
+  // 座標取得
+  // =============================
   const { getEventPos } = useCoordinate({
     paintCanvas,
     scale,
@@ -41,7 +59,9 @@ export function usePainter({
     panY,
   });
 
-  // 描画操作関連の関数（描画開始、描画中、描画停止）
+  // =============================
+  // 描画操作
+  // =============================
   const { startDrawing, draw, stopDrawing, isPainting } = useDrawing({
     paintCanvas,
     isEraser,
@@ -57,49 +77,52 @@ export function usePainter({
     getEventPos,
   });
 
-  // ==================================================
-  // スケール・パン関連
-  // ==================================================
+  // =============================
+  // スケール・パン
+  // =============================
+  const initialScale = ref<number>(1);
 
-  const initialScale = ref(1);
-
-  // ==================================================
-  // Undo / Redo 機能
-  // ==================================================
-
-  // Undo処理
-  function undo() {
+  // =============================
+  // Undo / Redo
+  // =============================
+  const undo = (): void => {
     painterStore.undo();
     redrawPaint();
-  }
+  };
 
-  // Redo処理
-  function redo() {
+  const redo = (): void => {
     painterStore.redo();
     redrawPaint();
-  }
+  };
 
-  // ==================================================
+  // =============================
   // 描画リセット
-  // ==================================================
-  // 描画のリセット処理
-  function resetPaint() {
+  // =============================
+  const resetPaint = (): void => {
     painterStore.strokes = [];
     painterStore.strokeIndex = -1;
     painterStore.currentStroke = null;
     localStorage.removeItem('painterStrokes');
 
-    if (paintCanvas?.value) {
+    if (paintCanvas.value) {
       const ctx = paintCanvas.value.getContext('2d');
-      ctx.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
-    }
-  }
+      if (!ctx) return;
 
-  // 初期状態の復元
+      ctx.clearRect(
+        0,
+        0,
+        paintCanvas.value.width,
+        paintCanvas.value.height
+      );
+    }
+  };
+
+  // =============================
+  // 初期復元
+  // =============================
   painterStore.restore();
   redrawPaint();
 
-  // スケールやパンが変更された際の再描画
   watch([scale, panX, panY], redrawPaint);
 
   onMounted(() => {
