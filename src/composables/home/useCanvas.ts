@@ -24,11 +24,10 @@ export function useCanvas(
   // ==========================================
   // キャンバスサイズを親要素に合わせる
   // ==========================================
-  const resizeCanvasToWrapper = (
-    { force = false }: { force?: boolean } = {}
-  ): void => {
-    if (!canvasWrapper.value || !lineCanvas.value || !paintCanvas.value)
-      return;
+  const resizeCanvasToWrapper = ({
+    force = false,
+  }: { force?: boolean } = {}): void => {
+    if (!canvasWrapper.value || !lineCanvas.value || !paintCanvas.value) return;
 
     const rect = canvasWrapper.value.getBoundingClientRect();
     const width = rect.width;

@@ -1,4 +1,5 @@
 import { ref, watch, computed, Ref } from 'vue';
+import type { CSSProperties } from 'vue';
 
 interface Color {
   r: number;
@@ -123,14 +124,14 @@ export function useBrushCursor({
   }
 
   // モバイルでのカーソルのスタイルを返す計算プロパティ
-  const cursorStyle = computed(() => {
+  const cursorStyle = computed<CSSProperties>(() => {
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const size = baseSize * 0.6;
     const borderWidth = 0.2;
 
     const color = isEraser.value
-      ? 'rgba(80,80,80,0.8)' // 消しゴムの色
-      : `rgba(${selectedColor.value.r},${selectedColor.value.g},${selectedColor.value.b},${selectedColor.value.a})`; // 選択した色
+      ? 'rgba(80,80,80,0.8)'
+      : `rgba(${selectedColor.value.r},${selectedColor.value.g},${selectedColor.value.b},${selectedColor.value.a})`;
 
     const dashedBorder = isEraser.value
       ? `${borderWidth}px dashed ${color}`

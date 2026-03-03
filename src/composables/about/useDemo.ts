@@ -1,12 +1,17 @@
-import { ref } from 'vue';
-import { BALL_SIZE, colors } from '@/config/balls';
-export function useDemo(messageVisible, balls) {
+// =======================================
+// useDemo.ts (TS完全版)
+// =======================================
+import { Ref, ref } from 'vue';
+import { Ball } from '@/composables/about/useBalls';
+import { BALL_SIZE, COLORS } from '@/config/balls';
+
+export function useDemo(messageVisible: Ref<boolean>, balls: Ref<Ball[]>) {
   const demoPlayed = ref(false);
-  let emptySince = null;
+  let emptySince: number | null = null;
   const EMPTY_DELAY = 3000;
 
   const isPC = window.innerWidth > 768;
-  let firstDemoBall = null;
+  let firstDemoBall: Ball | null = null;
   let firstDemoHandled = false;
 
   // ==================================================
@@ -22,55 +27,55 @@ export function useDemo(messageVisible, balls) {
       : window.innerHeight - BALL_SIZE;
     const x = isPC ? -BALL_SIZE : window.innerWidth / 2 - BALL_SIZE / 2;
 
-    const ball = {
+    const ball: Ball = {
       id: Date.now(),
       x,
       y,
       vx: 0,
       vy: 0,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
       scale: 1,
       hit: false,
       isDemo: true,
       isFirst: true,
+      type: 'target',
     };
 
     firstDemoBall = ball;
     balls.value.push(ball);
   };
 
-  //メッセージの透過設定
-  const setMessageTransparency = (isTransparent) => {
+  // ==================================================
+  // メッセージ透過
+  // ==================================================
+  const setMessageTransparency = (isTransparent: boolean) => {
     const messageEl = document.querySelector('.message');
-    if (messageEl) {
-      if (isTransparent) {
-        messageEl.classList.add('transparent');
-      } else {
-        messageEl.classList.remove('transparent');
-      }
-    }
+    if (!messageEl) return;
+    if (isTransparent) messageEl.classList.add('transparent');
+    else messageEl.classList.remove('transparent');
   };
 
   setMessageTransparency(true);
 
-  // 初回デモボールタップ時
-  const handleFirstDemoBallTap = (ball, messageElRef) => {
+  // ==================================================
+  // 初回デモボールタップ
+  // ==================================================
+  const handleFirstDemoBallTap = (ball: Ball) => {
     if (!firstDemoBall || firstDemoHandled) return;
     if (ball.id === firstDemoBall.id) {
       firstDemoHandled = true;
-
-      // 四方散布を先に生成
       spawnDemoScatter(ball.x, ball.y);
 
-      // 初回ボールは四方散布後に削除
       requestAnimationFrame(() => {
-        firstDemoBall.hit = true;
+        firstDemoBall!.hit = true;
         firstDemoBall = null;
       });
     }
   };
 
-  // 初回デモボール更新（PC/SP両対応）
+  // ==================================================
+  // 初回デモボール更新
+  // ==================================================
   const updateFirstDemoBall = () => {
     if (!firstDemoBall || firstDemoHandled) return;
 
@@ -92,7 +97,6 @@ export function useDemo(messageVisible, balls) {
     if (!isMobile) {
       b.y = window.innerHeight / 2 - BALL_SIZE / 2;
 
-      // X, Y座標両方のチェック
       if (
         b.x + BALL_SIZE >= left &&
         b.x <= right &&
@@ -105,12 +109,9 @@ export function useDemo(messageVisible, balls) {
         }
       }
 
-      // メッセージ領域の終わりに到達したら透過処理を追加
       if (b.x + BALL_SIZE > right && !isPastMessage) {
         isPastMessage = true;
-        if (messageEl) {
-          messageEl.classList.add('transparent');
-        }
+        messageEl.classList.add('transparent');
       }
 
       b.vx = isInsideMessage ? 1 : b.x < left ? 6 : 6;
@@ -118,7 +119,6 @@ export function useDemo(messageVisible, balls) {
     } else {
       b.x = window.innerWidth / 2 - BALL_SIZE / 2;
 
-      // メッセージ領域に到達した場合
       if (b.y + BALL_SIZE >= top && b.y <= top + BALL_SIZE) {
         if (!isInsideMessage) {
           isInsideMessage = true;
@@ -126,12 +126,9 @@ export function useDemo(messageVisible, balls) {
         }
       }
 
-      // ボールがメッセージ領域を通過したか
       if (b.y + BALL_SIZE < top - BALL_SIZE && !isPastMessage) {
         isPastMessage = true;
-        if (messageEl) {
-          messageEl.classList.add('transparent');
-        }
+        messageEl.classList.add('transparent');
       }
 
       b.vy = isInsideMessage ? -1 : b.y > bottom ? -3 : -3;
@@ -140,20 +137,17 @@ export function useDemo(messageVisible, balls) {
 
     updateBallPosition(b, isMobile);
 
-    // 画面外に出た場合の処理
     if (
       b.x + BALL_SIZE < 0 ||
       b.x > window.innerWidth ||
       b.y + BALL_SIZE < 0 ||
       b.y > window.innerHeight
     ) {
-      if (!b.exitTime) {
-        b.exitTime = Date.now();
-      }
+      if (!b.exitTime) b.exitTime = Date.now();
 
       const timeOut = 500;
       if (b.exitTime && Date.now() - b.exitTime > timeOut) {
-        firstDemoBall.hit = true;
+        b.hit = true;
         firstDemoBall = null;
         emptySince = Date.now();
       }
@@ -161,25 +155,24 @@ export function useDemo(messageVisible, balls) {
   };
 
   // ==================================================
-  // 四方散布処理
+  // 四方散布
   // ==================================================
-  const spawnDemoScatter = (x, y) => {
+  const spawnDemoScatter = (x: number, y: number) => {
     const num = 8;
     for (let i = 0; i < num; i++) {
       const angle = ((Math.PI * 2) / num) * i;
       const speed = Math.random() * 1.5 + 0.5;
-      const newBall = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      const newBall: Ball = {
+        id: Date.now() + Math.floor(Math.random() * 1000), // number にする
         type: 'target',
         x,
         y,
-        color: colors[Math.floor(Math.random() * colors.length)],
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         scale: 1,
         hit: false,
       };
-
       balls.value.push(newBall);
     }
   };
@@ -191,82 +184,56 @@ export function useDemo(messageVisible, balls) {
     const y = isPC
       ? window.innerHeight / 2 - BALL_SIZE / 2
       : window.innerHeight - BALL_SIZE;
-
-    let x = 0;
-    if (isPC) {
-      x = -BALL_SIZE;
-    } else {
-      x = Math.max(
-        0,
-        Math.min(
-          window.innerWidth / 2 - BALL_SIZE / 2,
-          window.innerWidth - BALL_SIZE
-        )
-      );
-    }
+    const x = isPC ? -BALL_SIZE : window.innerWidth / 2 - BALL_SIZE / 2;
 
     const vx = isPC ? 2 : 0;
     const vy = isPC ? 0 : -2;
 
-    const ball = {
+    const ball: Ball = {
       id: Date.now(),
-      x: x,
-      y: y,
-      vx: vx,
-      vy: vy,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      x,
+      y,
+      vx,
+      vy,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
       scale: 1,
       hit: false,
       isDemo: true,
       isFirst: false,
+      type: 'target',
     };
 
     balls.value.push(ball);
   };
 
-  // ボールの位置更新
-  const updateBallPosition = (b, isMobile) => {
+  const updateBallPosition = (b: Ball, isMobile: boolean) => {
     b.x += b.vx;
     b.y += b.vy;
 
-    // PCの動き：左から右
     if (!isMobile) {
-      if (b.x >= window.innerWidth && !b.exitTime) {
-        b.exitTime = Date.now();
-      }
+      if (b.x >= window.innerWidth && !b.exitTime) b.exitTime = Date.now();
     } else {
-      // スマホの動き：下から上
-      if (b.y <= 0 && !b.exitTime) {
-        b.exitTime = Date.now();
-      }
+      if (b.y <= 0 && !b.exitTime) b.exitTime = Date.now();
     }
-    return b;
   };
 
-  // 通常デモボール更新
   const updateNormalDemoBalls = () => {
     const isMobile = window.innerWidth <= 768;
 
     balls.value.forEach((b) => {
       if (!b.isDemo || b.isFirst) return;
 
-      // ボールの位置を更新
-      b = updateBallPosition(b, isMobile);
+      updateBallPosition(b, isMobile);
 
-      // 画面外に出てから一定時間経過しているか判定
       if (b.exitTime) {
         const timeOut = 500;
-        const timeElapsed = Date.now() - b.exitTime;
-        if (timeElapsed > timeOut) {
-          b.hit = true;
-        }
+        if (Date.now() - b.exitTime > timeOut) b.hit = true;
       }
     });
-    // ボールが画面外に出たものだけを削除
+
     balls.value = balls.value.filter((b) => !b.hit);
   };
 
-  // 通常デモボール自動生成
   const checkAndSpawnNormalDemoBall = () => {
     if (!firstDemoBall) {
       const hasVisible = balls.value.some((b) => !b.hit);

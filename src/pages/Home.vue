@@ -28,54 +28,88 @@
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue';
+<script setup lang="ts">
+import { ref, computed } from 'vue';
 import CanvasManager from '@/components/Home/CanvasManager.vue';
 import Toolbar from '@/components/Home/Toolbar.vue';
 import { useColorStore } from '@/stores/useColorStore';
 
-// ストアとの連携
-const colorStore = useColorStore();
-
-// 描画関連の状態
-const isPainting = ref(false); // 描画中かどうか
-const showColorPicker = ref(false); // カラーピッカーを表示するか
-const isEraser = ref(false); // 消しゴムモードかどうか
-const brushSize = ref(20); // ブラシのサイズ
-const eraserSize = ref(30); // 消しゴムのサイズ
-
-// キャラクター関連
-const characters = ref([]); // 描画対象のキャラクター
-
-// Undo/Redo 関連の関数
-const undoFn = ref(null); // Undo関数
-const redoFn = ref(null); // Redo関数
-
-// 画像保存機能
-const saveImageFn = ref(() => {}); // 保存用の関数
+// -----------------------
+// 型定義
+// -----------------------
+interface Character {
+  img: HTMLImageElement;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 // -----------------------
-// Undo/Redoの設定
-function setUndoRedo({ undo, redo }) {
+// ストア
+// -----------------------
+const colorStore = useColorStore();
+
+// -----------------------
+// 描画関連の状態
+// -----------------------
+const isPainting = ref(false);
+const showColorPicker = ref(false);
+const isEraser = ref(false);
+const brushSize = ref(20);
+const eraserSize = ref(30);
+
+// -----------------------
+// キャラクター関連
+// -----------------------
+const characters = ref<Character[]>([]);
+
+// 例: API等のデータをCharacter型に変換
+const apiData = [
+  { id: 1, name: 'Alice', imageUrl: 'https://placekitten.com/200/200' },
+  { id: 2, name: 'Bob', imageUrl: 'https://placekitten.com/300/300' },
+];
+
+characters.value = apiData.map((d) => {
+  const img = new Image();
+  img.src = d.imageUrl;
+  return {
+    img,
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+  };
+});
+
+// -----------------------
+// Undo / Redo / 保存
+// -----------------------
+const undoFn = ref<() => void>(() => {});
+const redoFn = ref<() => void>(() => {});
+const saveImageFn = ref<() => void>(() => {});
+
+function setUndoRedo({ undo, redo }: { undo: () => void; redo: () => void }) {
   undoFn.value = undo;
   redoFn.value = redo;
 }
 
 function undo() {
-  undoFn.value?.();
+  undoFn.value();
 }
 
 function redo() {
-  redoFn.value?.();
+  redoFn.value();
 }
 
-// -----------------------
-// 画像保存機能の設定
-function setSaveImage(fn) {
+function setSaveImage(fn: () => void) {
   saveImageFn.value = fn;
 }
 
-const canvasManagerRef = ref(null);
+// -----------------------
+// CanvasManager の参照
+// -----------------------
+const canvasManagerRef = ref<InstanceType<typeof CanvasManager> | null>(null);
 
 function changeRandomCharacter() {
   canvasManagerRef.value?.changeRandomCharacter();

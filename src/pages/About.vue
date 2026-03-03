@@ -33,11 +33,11 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+<script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount, Ref } from 'vue';
 import { useSound } from '@/composables/about/useSound';
 import { useDemo } from '@/composables/about/useDemo';
-import { useBalls } from '@/composables/about/useBalls';
+import { useBalls, Ball, Effect } from '@/composables/about/useBalls';
 import { useCanvas } from '@/composables/about/useCanvas';
 import off from '@/assets/images/about/off.png';
 import on from '@/assets/images/about/on.png';
@@ -45,16 +45,20 @@ import on from '@/assets/images/about/on.png';
 // ==================================================
 // リアクティブデータの定義
 // ==================================================
+const messageVisible = ref<boolean>(false);
+const demoPlayed = ref<boolean>(false);
 
-const messageVisible = ref(false);
 const { soundEnabled, playSound, playPon, toggleSound } = useSound();
-const demoPlayed = ref(false);
 
-// ボールに関連する関数を取得
-const { balls, updateBalls, addBall, throwBall, effects, removeBall } =
+// ==================================================
+// ボール関連の関数を取得
+// ==================================================
+const { balls, effects, addBall, throwBall, removeBall, updateBalls } =
   useBalls(messageVisible, playSound, playPon, demoPlayed);
 
-// デモに関連する関数を取得
+// ==================================================
+// デモ関連の関数を取得
+// ==================================================
 const {
   spawnFirstDemoBall,
   updateFirstDemoBall,
@@ -65,8 +69,7 @@ const {
 // ==================================================
 // Canvas関連の設定
 // ==================================================
-
-const canvasRef = ref(null);
+const canvasRef = ref<HTMLCanvasElement | null>(null);
 
 const { drawCanvas, resizeCanvas } = useCanvas(
   canvasRef,
@@ -103,7 +106,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeCanvas);
 });
 </script>
-
 <style lang="scss" scoped>
 @use '@/assets/styles/variables' as vars;
 @use '@/assets/styles/mixins' as *;

@@ -107,98 +107,116 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import ColorPicker from '/src/components/Home/ColorPicker.vue';
 import { useColorStore } from '@/stores/useColorStore';
 import { usePainterStore } from '@/stores/usePainterStore';
 import { storeToRefs } from 'pinia';
 
+// ==================================================
+// ストア
+// ==================================================
 const painterStore = usePainterStore();
 const colorStore = useColorStore();
 const { selectedColor } = storeToRefs(colorStore);
 
-// カラーピッカーの表示/非表示状態
+// ==================================================
+// Props & Emits
+// ==================================================
+interface Color {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+const props = defineProps<{
+  isPainting: boolean;
+  showColorPicker: boolean;
+  isEraser: boolean;
+  brushSize: number;
+  eraserSize: number;
+  undo: () => void;
+  redo: () => void;
+  saveImage: () => void;
+}>();
+
+const emit = defineEmits<{
+  (e: 'update:brushSize', val: number): void;
+  (e: 'update:eraserSize', val: number): void;
+  (e: 'update:isEraser', val: boolean): void;
+  (e: 'update:showColorPicker', val: boolean): void;
+  (e: 'randomCharacter'): void;
+}>();
+
+// ==================================================
+// カラーピッカー表示切替
+// ==================================================
 function onBrushClick() {
   if (localIsEraser.value) localIsEraser.value = false;
 
-  // 親の showColorPicker をトグル
   const next = !props.showColorPicker;
   emit('update:showColorPicker', next);
 
-  // 表示なら位置を更新
   if (next && brushBtn.value) updatePickerPosition(brushBtn.value);
 }
 
-// props の受け取り
-const props = defineProps({
-  isPainting: Boolean,
-  showColorPicker: Boolean,
-  isEraser: Boolean,
-  brushSize: Number,
-  eraserSize: Number,
-  undo: Function,
-  redo: Function,
-  saveImage: Function,
+// ==================================================
+// ローカル状態
+// ==================================================
+const localIsEraser = computed<boolean>({
+  get: () => props.isEraser,
+  set: (val) => emit('update:isEraser', val),
 });
 
-// 塗り始めたら、または消しゴムに切り替えたらカラーピッカーを閉じる
+const localBrushSize = computed<number>({
+  get: () => props.brushSize,
+  set: (val) => emit('update:brushSize', val),
+});
+
+const localEraserSize = computed<number>({
+  get: () => props.eraserSize,
+  set: (val) => emit('update:eraserSize', val),
+});
+
+// 現在選択中の色をRGBA文字列で返す
+const brushIconColor = computed<string>(() => {
+  const c = colorStore.selectedColor as Color;
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
+});
+
+// ==================================================
+// カラーピッカー閉じる監視
+// ==================================================
 watch(
   () => painterStore.isPainting,
   (val) => {
-    if (val) {
-      // 塗り始めたらカラーピッカーを閉じる
-      emit('update:showColorPicker', false);
-    }
+    if (val) emit('update:showColorPicker', false);
   }
 );
 
 watch(
   () => props.isEraser,
   (val) => {
-    if (val) {
-      emit('update:showColorPicker', false);
-    }
+    if (val) emit('update:showColorPicker', false);
   }
 );
 
-// イベントエミッターの定義
-const emit = defineEmits([
-  'update:brushSize',
-  'update:eraserSize',
-  'update:isEraser',
-  'update:showColorPicker',
-  'randomCharacter',
-]);
+// ==================================================
+// DOM 参照
+// ==================================================
+const brushBtn = ref<HTMLElement | null>(null);
+const toolbar = ref<HTMLElement | null>(null);
+const canvasEl = ref<HTMLElement | null>(null);
 
-// 現在選択されている色をRGBA形式で返す
-const brushIconColor = computed(() => {
-  const c = colorStore.selectedColor;
-  return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
-});
-
-// ローカル状態の定義
-const localIsEraser = computed({
-  get: () => props.isEraser,
-  set: (val) => emit('update:isEraser', val),
-});
-
-const localBrushSize = computed({
-  get: () => props.brushSize,
-  set: (val) => emit('update:brushSize', val),
-});
-
-const localEraserSize = computed({
-  get: () => props.eraserSize,
-  set: (val) => emit('update:eraserSize', val),
-});
-
+// ==================================================
 // モバイル判定
-const isMobile = ref(window.innerWidth <= 768);
-// 画面サイズ変更時に更新
+// ==================================================
+const isMobile = ref<boolean>(window.innerWidth <= 768);
 const onResize = () => {
   isMobile.value = window.innerWidth <= 768;
-  updateToolbarPosition(); // 既存のツールバー位置更新も呼ぶ
+  updateToolbarPosition();
 };
 
 onMounted(() => {
@@ -209,39 +227,41 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize);
 });
-// カラーピッカーの位置調整
-const brushBtn = ref(null); // ブラシボタンの DOM 参照
-const pickerStyle = ref({}); // カラーピッカーの位置
 
-const updatePickerPosition = (btn) => {
+// ==================================================
+// カラーピッカー位置調整
+// ==================================================
+const pickerStyle = ref<Record<string, string>>({});
+
+const updatePickerPosition = (btn: HTMLElement) => {
   const rect = btn.getBoundingClientRect();
   if (isMobile.value) {
     pickerStyle.value = {
-      top: rect.top + 'px',
-      left: rect.right + 8 + 'px',
+      top: `${rect.top}px`,
+      left: `${rect.right + 8}px`,
       position: 'fixed',
-      zIndex: 1000,
+      zIndex: '1000',
     };
   } else {
     pickerStyle.value = {
-      top: rect.bottom + 8 + 'px',
-      left: rect.left + 'px',
+      top: `${rect.bottom + 8}px`,
+      left: `${rect.left}px`,
       position: 'fixed',
-      zIndex: 1000,
+      zIndex: '1000',
     };
   }
 };
 
-// ブラシ・消しゴムサイズ調整関数
-function changeSize(delta) {
+// ==================================================
+// ブラシ・消しゴムサイズ変更
+// ==================================================
+function changeSize(delta: number) {
   if (localIsEraser.value) {
-    // 消しゴムサイズの変更
     localEraserSize.value = Math.min(
       100,
       Math.max(5, localEraserSize.value + delta)
     );
   } else {
-    // ブラシサイズの変更
     localBrushSize.value = Math.min(
       100,
       Math.max(5, localBrushSize.value + delta)
@@ -249,15 +269,14 @@ function changeSize(delta) {
   }
 }
 
-//ツールバーの位置調整
-const toolbar = ref(null);
-const canvasEl = ref(null);
-
+// ==================================================
+// ツールバー位置調整
+// ==================================================
 const updateToolbarPosition = () => {
   if (!toolbar.value || !canvasEl.value) return;
   const rect = canvasEl.value.getBoundingClientRect();
-  toolbar.value.style.top = rect.top + 'px'; // キャンバス上端に合わせる
-  toolbar.value.style.left = rect.left + 'px';
+  toolbar.value.style.top = `${rect.top}px`;
+  toolbar.value.style.left = `${rect.left}px`;
 };
 
 onMounted(() => {

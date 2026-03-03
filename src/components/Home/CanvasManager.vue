@@ -21,8 +21,16 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+<script setup lang="ts">
+import {
+  ref,
+  computed,
+  watch,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  type Ref,
+} from 'vue';
 import { useBrushCursor } from '@/composables/home/useBrushCursor';
 import { usePainter } from '@/composables/home/usePainter';
 import { useCanvas } from '@/composables/home/useCanvas';
@@ -31,67 +39,84 @@ import { useCharacterImage } from '@/composables/home/useCharacterImage';
 import { useTouchGestures } from '@/composables/home/useTouchGestures';
 
 // ==================================================
+// 型定義
+// ==================================================
+interface Character {
+  img: HTMLImageElement;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface Color {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+// ==================================================
 // Props & Emits
 // ==================================================
-const props = defineProps({
-  characters: Array,
-  isEraser: Boolean,
-  brushSize: Number,
-  eraserSize: Number,
-  selectedColor: Object,
-});
+const props = defineProps<{
+  characters: Character[];
+  isEraser: boolean;
+  brushSize: number;
+  eraserSize: number;
+  selectedColor: Color;
+}>();
 
-const emit = defineEmits([
-  'update:isPainting',
-  'closePalette',
-  'updateUndoRedo',
-  'updateSaveImage',
-]);
+const emit = defineEmits<{
+  (e: 'update:isPainting', value: boolean): void;
+  (e: 'closePalette'): void;
+  (e: 'updateUndoRedo', value: { undo: () => void; redo: () => void }): void;
+  (e: 'updateSaveImage', value: () => void): void;
+}>();
 
 // ==================================================
-// Canvas要素と表示状態
+// Canvas & 状態
 // ==================================================
-const lineCanvas = ref(null);
-const paintCanvas = ref(null);
-const canvasWrapper = ref(null);
+const lineCanvas = ref<HTMLCanvasElement | null>(null);
+const paintCanvas = ref<HTMLCanvasElement | null>(null);
+const canvasWrapper = ref<HTMLDivElement | null>(null);
 
 const scale = ref(1);
 const initialScale = ref(1);
 const panX = ref(0);
 const panY = ref(0);
 const isMobile = ref(window.innerWidth <= 768);
+const isPinching = ref(false);
+const canvasReady = ref(false); // 描画完了フラグ
 
 // ==================================================
 // キャラクター画像管理
 // ==================================================
-const {
-  loadRandomCharacterOnce,
-  changeRandomCharacter,
-  ensureCharacterMatchesDevice,
-} = useCharacterImage(isMobile);
+const { loadRandomCharacterOnce, changeRandomCharacter } =
+  useCharacterImage(isMobile);
 
-// 描画（ブラシ・消しゴム）中はキャラ切り替えを禁止して誤操作を防ぐ
-function changeCharacterFromButton() {
-  if (isPainting.value) return;
+function changeCharacterFromButton(): void {
+  if (isPainting?.value) return;
+
+  canvasReady.value = false;
   changeRandomCharacter({
     resetPaint,
     characters: props.characters,
-    onAfterChange: () => {
+    onAfterChange: async () => {
+      await nextTick();
       handleResize();
       drawAllCharacters();
       updateBrushCursor();
+      canvasReady.value = true;
     },
   });
 }
 
-defineExpose({
-  changeRandomCharacter: changeCharacterFromButton,
-});
+defineExpose({ changeRandomCharacter: changeCharacterFromButton });
 
 // ==================================================
-// キャラクター位置調整
+// キャラクター描画
 // ==================================================
-
 const { initCtx, centerAllCharacters, drawAllCharacters } =
   useCharacterRenderer({
     characters: props.characters,
@@ -118,16 +143,18 @@ const {
   eraserSize: computed(() => props.eraserSize),
   selectedColor: computed(() => props.selectedColor),
   isMobile,
-  canvasRect: computed(
-    () => paintCanvas.value?.getBoundingClientRect() || { left: 0, top: 0 }
-  ),
-  panX: panX,
-  panY: panY,
-  scale: scale,
+  isPinching,
+  canvasRect: computed(() => {
+    const rect = paintCanvas.value?.getBoundingClientRect();
+    return rect ?? { left: 0, top: 0, width: 0, height: 0 };
+  }),
+  panX,
+  panY,
+  scale,
 });
 
 // ==================================================
-// Painter & Canvas 操作
+// Canvas 操作
 // ==================================================
 const { resizeCanvasToWrapper, clampPan } = useCanvas(
   props,
@@ -139,62 +166,81 @@ const { resizeCanvasToWrapper, clampPan } = useCanvas(
   panY
 );
 
-let startDrawing, draw, stopDrawing, isPainting, undo, redo, resetPaint;
-let lineCtx = null;
+// ==================================================
+// Painter関連: undefined に統一
+// ==================================================
+let startDrawing: ((e: MouseEvent | TouchEvent) => void) | undefined;
+let draw: ((e: MouseEvent | TouchEvent) => void) | undefined;
+let stopDrawing: (() => void) | undefined;
+let isPainting: Ref<boolean> | undefined;
+let undo: (() => void) | undefined;
+let redo: (() => void) | undefined;
+let resetPaint: (() => void) | undefined;
+
+let lineCtx: CanvasRenderingContext2D | null = null;
 
 // ==================================================
-// リサイズ & 端末切替
+// リサイズ
 // ==================================================
-function handleResize() {
+function handleResize(): void {
   resizeCanvasToWrapper();
   centerAllCharacters();
   drawAllCharacters();
   updateBrushCursor();
 }
 
-// 端末変更時の再初期化
-function switchDevice() {
+function switchDevice(): void {
+  if (!paintCanvas.value) return;
+
+  canvasReady.value = false;
+
   const paintData = paintCanvas.value.toDataURL();
   resizeCanvasToWrapper();
+
   changeRandomCharacter({
     resetPaint,
     characters: props.characters,
-    onAfterChange: () => {
+    onAfterChange: async () => {
+      await nextTick();
       handleResize();
       drawAllCharacters();
       updateBrushCursor();
+      canvasReady.value = true;
     },
   });
+
   centerAllCharacters();
 
   const img = new Image();
   img.src = paintData;
   img.onload = () => {
+    if (!paintCanvas.value) return;
     const ctx = paintCanvas.value.getContext('2d');
+    if (!ctx) return;
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
     ctx.drawImage(img, 0, 0, paintCanvas.value.width, paintCanvas.value.height);
+    canvasReady.value = true;
   };
-  updateBrushCursor();
 }
 
-// 端末変更検知
-const handleResizeDevice = () => {
+function handleResizeDevice(): void {
   const wasMobile = isMobile.value;
   isMobile.value = window.innerWidth <= 768;
 
   if (wasMobile !== isMobile.value) {
     switchDevice();
   }
-};
+}
 
 window.addEventListener('resize', handleResizeDevice);
 window.addEventListener('orientationchange', handleResizeDevice);
 
 // ==================================================
-// 保存処理
+// 保存
 // ==================================================
-async function saveImage() {
+function saveImage(): void {
   if (!paintCanvas.value || !lineCanvas.value) return;
 
   const width = lineCanvas.value.width;
@@ -203,11 +249,12 @@ async function saveImage() {
   const out = document.createElement('canvas');
   out.width = width;
   out.height = height;
+
   const ctx = out.getContext('2d');
+  if (!ctx) return;
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
-
   ctx.drawImage(paintCanvas.value, 0, 0, width, height);
   ctx.drawImage(lineCanvas.value, 0, 0, width, height);
 
@@ -220,10 +267,12 @@ async function saveImage() {
 // ==================================================
 // ライフサイクル
 // ==================================================
-let onResize;
 onMounted(() => {
+  if (!lineCanvas.value) return;
+
   lineCtx = lineCanvas.value.getContext('2d');
   initialScale.value = scale.value;
+
   initCtx();
   handleResize();
 
@@ -236,9 +285,7 @@ onMounted(() => {
     scale,
     panX,
     panY,
-    updateBrushCursor,
     cursorPos,
-    cursorVisible,
     isMobile,
   });
 
@@ -250,14 +297,13 @@ onMounted(() => {
   redo = painter.redo;
   resetPaint = painter.resetPaint;
 
-  // タッチ操作・ピンチ操作
   const { handleTouchStart, handleTouchMove, handleTouchEnd } =
     useTouchGestures({
       paintCanvas,
       startDrawing,
       draw,
       stopDrawing,
-      isPainting: isPainting,
+      isPainting,
       updateCursorPosition,
       hideCursor,
       panX,
@@ -266,16 +312,16 @@ onMounted(() => {
       clampPan,
     });
 
-  canvasWrapper.value.addEventListener('touchstart', handleTouchStart, {
+  canvasWrapper.value?.addEventListener('touchstart', handleTouchStart, {
     passive: false,
   });
-  canvasWrapper.value.addEventListener('touchmove', handleTouchMove, {
+  canvasWrapper.value?.addEventListener('touchmove', handleTouchMove, {
     passive: false,
   });
-  canvasWrapper.value.addEventListener('touchend', handleTouchEnd, {
+  canvasWrapper.value?.addEventListener('touchend', handleTouchEnd, {
     passive: false,
   });
-  canvasWrapper.value.addEventListener('touchcancel', handleTouchEnd, {
+  canvasWrapper.value?.addEventListener('touchcancel', handleTouchEnd, {
     passive: false,
   });
 
@@ -296,24 +342,13 @@ onMounted(() => {
     });
     handleResize();
     updateBrushCursor();
-  };
-
-  onResize = () => {
-    const wasMobile = isMobile.value;
-    isMobile.value = window.innerWidth <= 768;
-    handleResize();
-    clampPan();
-    if (wasMobile !== isMobile.value) {
-      ensureCharacterMatchesDevice(props.characters, changeRandomCharacter);
-    }
+    canvasReady.value = true;
   };
 });
 
 onUnmounted(() => {
-  if (onResize) {
-    window.removeEventListener('resize', onResize);
-    window.removeEventListener('orientationchange', onResize);
-  }
+  window.removeEventListener('resize', handleResizeDevice);
+  window.removeEventListener('orientationchange', handleResizeDevice);
 });
 </script>
 
