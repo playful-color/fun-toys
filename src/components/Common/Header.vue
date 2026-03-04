@@ -1,18 +1,22 @@
 <template>
   <header ref="headerRef" id="app-header">
-    <h1><router-link to="/"><img :src="logo" alt="PLAYFULLY CODING LOGO" /></router-link></h1>
+    <h1>
+      <router-link to="/"
+        ><img :src="logo" alt="PLAYFULLY CODING LOGO"
+      /></router-link>
+    </h1>
     <Navigation />
   </header>
 </template>
 
-<script setup>
-import logo from '@/assets/images/common/logo.png'
-import Navigation from '@/components/Common/Navigation.vue'
+<script setup lang="ts">
+import logo from '@/assets/images/common/logo.png';
+import Navigation from '@/components/Common/Navigation.vue';
 </script>
 
 <style lang="scss" scoped>
-@use "@/assets/styles/variables" as vars;
-@use "@/assets/styles/mixins" as *;
+@use '@/assets/styles/variables' as vars;
+@use '@/assets/styles/mixins' as *;
 header {
   max-width: 1200px;
   width: 97%;

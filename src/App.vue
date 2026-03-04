@@ -19,13 +19,16 @@
   </main>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import Header from '@/components/Common/Header.vue';
 import Loading from '@/components/Common/Loading.vue';
 
-const isLoading = ref(false);
+// ローディング状態
+const isLoading = ref<boolean>(false);
+
+// ルート情報
 const route = useRoute();
 
 // ローディングをトップページでだけ表示する処理
@@ -36,14 +39,14 @@ onMounted(() => {
   }
 });
 
-// ローディングが終わったことをlocalStorageに保存
-function onLoadingFinished() {
+// ローディングが終わったことを localStorage に保存
+function onLoadingFinished(): void {
   isLoading.value = false;
   localStorage.setItem('loadingPlayed', 'true');
 }
 
-//もう一度体験する
-function loadingPlayback() {
+// もう一度体験する
+function loadingPlayback(): void {
   isLoading.value = false;
   requestAnimationFrame(() => {
     isLoading.value = true;

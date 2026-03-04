@@ -1,10 +1,14 @@
 <template>
   <div class="contactus">
     <h2>お問い合わせ</h2>
-    <p class="txt">制作のご相談・ご質問・ご感想など<br>お気軽にお問い合わせください。</p>
+    <p class="txt">
+      制作のご相談・ご質問・ご感想など<br />お気軽にお問い合わせください。
+    </p>
     <dl class="dl_form">
       <!-- 名前 -->
-      <dt><label for="name"><span class="mark">必須</span>名前</label></dt>
+      <dt>
+        <label for="name"><span class="mark">必須</span>名前</label>
+      </dt>
       <dd ref="nameWrapRef">
         <input
           id="name"
@@ -22,7 +26,9 @@
       </dd>
 
       <!-- メール -->
-      <dt><label for="email"><span class="mark">必須</span>メール</label></dt>
+      <dt>
+        <label for="email"><span class="mark">必須</span>メール</label>
+      </dt>
       <dd ref="emailWrapRef">
         <input
           id="email"
@@ -31,7 +37,10 @@
           type="email"
           placeholder="例）example@mail.com"
           autocomplete="email"
-          :class="{ errorInput: form.errors.email, successInput: fieldOk.email }"
+          :class="{
+            errorInput: form.errors.email,
+            successInput: fieldOk.email,
+          }"
           @input="onInput('email')"
           @blur="validateField('email')"
         />
@@ -40,7 +49,9 @@
       </dd>
 
       <!-- 電話 -->
-      <dt><label for="phone"><span class="mark any">任意</span>電話</label></dt>
+      <dt>
+        <label for="phone"><span class="mark any">任意</span>電話</label>
+      </dt>
       <dd ref="phoneWrapRef">
         <input
           id="phone"
@@ -50,7 +61,10 @@
           inputmode="numeric"
           placeholder="例）09012345678"
           autocomplete="tel"
-          :class="{ errorInput: form.errors.phone, successInput: fieldOk.phone }"
+          :class="{
+            errorInput: form.errors.phone,
+            successInput: fieldOk.phone,
+          }"
           @input="onPhoneInput"
           @blur="validateField('phone')"
         />
@@ -59,19 +73,28 @@
       </dd>
 
       <!-- お問い合わせ内容 -->
-      <dt><label for="message"><span class="mark">必須</span>お問い合わせ内容</label></dt>
+      <dt>
+        <label for="message"
+          ><span class="mark">必須</span>お問い合わせ内容</label
+        >
+      </dt>
       <dd ref="messageWrapRef">
         <textarea
           id="message"
           ref="messageInputRef"
           v-model="form.message"
           placeholder="例）お問い合わせ内容を入力してください"
-          :class="{ errorInput: form.errors.message, successInput: fieldOk.message }"
+          :class="{
+            errorInput: form.errors.message,
+            successInput: fieldOk.message,
+          }"
           @input="onInput('message')"
           @blur="validateField('message')"
         ></textarea>
         <span class="check" v-if="fieldOk.message">✔</span>
-        <p class="error" v-if="form.errors.message">{{ form.errors.message }}</p>
+        <p class="error" v-if="form.errors.message">
+          {{ form.errors.message }}
+        </p>
       </dd>
     </dl>
 
@@ -89,21 +112,30 @@
           <span class="box">
             <span class="check" v-if="form.agree">✔</span>
           </span>
-          プライバシーポリシーに<br class="sp">同意する
+          プライバシーポリシーに<br class="sp" />同意する
         </label>
         <div class="error-wrapper">
           <p class="error" v-if="form.errors.agree">{{ form.errors.agree }}</p>
         </div>
-      </div>      
+      </div>
       <ul class="ul_policy ul_note">
-        <li>※当サイトでは、お問い合わせ内容を Firebase Firestore（Google が提供するクラウドデータベース） に保存します。</li>
-        <li>※取得した個人情報は、お問い合わせへの対応以外の目的では利用せず、第三者に提供することはありません。</li>
+        <li>
+          ※当サイトでは、お問い合わせ内容を Firebase Firestore（Google
+          が提供するクラウドデータベース） に保存します。
+        </li>
+        <li>
+          ※取得した個人情報は、お問い合わせへの対応以外の目的では利用せず、第三者に提供することはありません。
+        </li>
         <li>※個人情報の管理責任者は、当サイト運営者とします。</li>
-        <li>※個人情報の取り扱いに関するお問い合わせは、本フォームよりご連絡ください。</li>
+        <li>
+          ※個人情報の取り扱いに関するお問い合わせは、本フォームよりご連絡ください。
+        </li>
       </ul>
 
       <ul class="ul_note">
-        <li>※当サイトで使用している画像・音声素材は、各提供元の著作権に従って使用しています。</li>
+        <li>
+          ※当サイトで使用している画像・音声素材は、各提供元の著作権に従って使用しています。
+        </li>
         <li>※使用素材の権利は各提供元に帰属します。</li>
       </ul>
     </div>
@@ -112,97 +144,125 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, nextTick } from 'vue'
-import { useContactStore } from '@/stores/useContactStore'
-import { defineEmits } from 'vue'
+<script setup lang="ts">
+import { ref, reactive, nextTick, Ref } from 'vue';
+import { useContactStore } from '@/stores/useContactStore';
 
-const form = useContactStore()
-const emit = defineEmits(['next'])
+const form = useContactStore();
+const emit = defineEmits<{
+  (e: 'next'): void;
+}>();
 
+// ==================================================
 // フィールドのラップと入力要素の参照
-const nameWrapRef = ref(null)
-const emailWrapRef = ref(null)
-const phoneWrapRef = ref(null)
-const messageWrapRef = ref(null)
-const agreeWrapRef = ref(null)
+// ==================================================
+const nameWrapRef = ref<HTMLElement | null>(null);
+const emailWrapRef = ref<HTMLElement | null>(null);
+const phoneWrapRef = ref<HTMLElement | null>(null);
+const messageWrapRef = ref<HTMLElement | null>(null);
+const agreeWrapRef = ref<HTMLElement | null>(null);
 
-const nameInputRef = ref(null)
-const emailInputRef = ref(null)
-const phoneInputRef = ref(null)
-const messageInputRef = ref(null)
-const agreeInputRef = ref(null)
+const nameInputRef = ref<HTMLInputElement | null>(null);
+const emailInputRef = ref<HTMLInputElement | null>(null);
+const phoneInputRef = ref<HTMLInputElement | null>(null);
+const messageInputRef = ref<HTMLTextAreaElement | null>(null);
+const agreeInputRef = ref<HTMLInputElement | null>(null);
 
+// ==================================================
 // チェックマーク状態
-const fieldOk = reactive({
+// ==================================================
+type FieldKey = 'name' | 'email' | 'phone' | 'message' | 'agree';
+
+const fieldOk = reactive<Record<FieldKey, boolean>>({
   name: false,
   email: false,
   phone: false,
   message: false,
-  agree: false
-})
+  agree: false,
+});
 
+// ==================================================
 // 入力時にエラーを消してチェックマークリセット
-const onInput = (field) => {
-  form.clearError(field);  // ストア側のエラーを削除
-  fieldOk[field] = false;  // 入力中はチェックなし
-}
+// ==================================================
+const onInput = (field: FieldKey) => {
+  form.clearError(field);
+  fieldOk[field] = false;
+};
 
+// ==================================================
 // 電話番号入力は数字のみ
-const onPhoneInput = (e) => {
-  form.phone = e.target.value.replace(/[^0-9]/g, '')  // ハイフン自動削除
-  fieldOk.phone = false  // フォームが変更されるとチェックを外す
-}
+// ==================================================
+const onPhoneInput = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  form.phone = target.value.replace(/[^0-9]/g, '');
+  fieldOk.phone = false;
+};
 
+// ==================================================
 // フォーカスとスクロール
-const scrollAndFocus = async (wrapRef, inputRef) => {
-  await nextTick()
-  wrapRef?.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+// ==================================================
+const scrollAndFocus = async (
+  wrapRef: Ref<HTMLElement | null>,
+  inputRef: Ref<HTMLElement | null>
+) => {
+  await nextTick();
+  wrapRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   setTimeout(() => {
-    inputRef?.value?.focus()
-  }, 300)
-}
+    inputRef.value?.focus();
+  }, 300);
+};
 
-// 単一フィールドバリデーション（ストアに任せる）
-const validateField = (field) => {
-  form.validateField(field)  // ストアのvalidateFieldメソッドを呼び出す
-  fieldOk[field] = !form.errors[field] && form[field]?.toString().trim().length > 0
-}
+// ==================================================
+// 単一フィールドバリデーション
+// ==================================================
+const validateField = (field: FieldKey) => {
+  form.validateField(field);
+  const value = form[field]?.toString().trim() || '';
+  const isOptional = field === 'phone';
+  fieldOk[field] = !form.errors[field] && (value !== '' || !isOptional);
+};
 
-// 確認ボタン押したときの更新も同じルール
+// ==================================================
+// 全フィールドのチェック更新
+// ==================================================
 const updateAllFieldOk = () => {
-  Object.keys(fieldOk).forEach((key) => {
-    const value = form[key]?.toString().trim() || ""
-    const isOptional = key === "phone"  // 任意フィールド
-    fieldOk[key] = !form.errors[key] && (value !== "" || !isOptional)
-  })
-}
+  (Object.keys(fieldOk) as FieldKey[]).forEach((key) => {
+    const value = form[key]?.toString().trim() || '';
+    const isOptional = key === 'phone';
+    fieldOk[key] = !form.errors[key] && (value !== '' || !isOptional);
+  });
+};
 
+// ==================================================
 // 確認ボタン
+// ==================================================
 const nextStep = async () => {
-  const isValid = form.validateStep1()
+  const isValid = form.validateStep1();
 
   // バリデーション結果に応じてチェックを更新
-  updateAllFieldOk()
+  updateAllFieldOk();
 
   if (!isValid) {
-    // バリデーションでエラーがあれば、そのフィールドにスクロール
-    if (form.errors.name) scrollAndFocus(nameWrapRef, nameInputRef)
-    else if (form.errors.email) scrollAndFocus(emailWrapRef, emailInputRef)
-    else if (form.errors.phone) scrollAndFocus(phoneWrapRef, phoneInputRef)
-    else if (form.errors.message) scrollAndFocus(messageWrapRef, messageInputRef)
-    else if (form.errors.agree) scrollAndFocus(agreeWrapRef, agreeInputRef)
-    return
+    // エラーがあるフィールドにスクロール
+    if (form.errors.name) await scrollAndFocus(nameWrapRef, nameInputRef);
+    else if (form.errors.email)
+      await scrollAndFocus(emailWrapRef, emailInputRef);
+    else if (form.errors.phone)
+      await scrollAndFocus(phoneWrapRef, phoneInputRef);
+    else if (form.errors.message)
+      await scrollAndFocus(messageWrapRef, messageInputRef);
+    else if (form.errors.agree)
+      await scrollAndFocus(agreeWrapRef, agreeInputRef);
+    return;
   }
 
-  emit('next')
-}
+  emit('next');
+};
 </script>
 
-
 <style lang="scss" scoped>
-@use "@/assets/styles/variables" as vars;
-@use "@/assets/styles/mixins" as *;
+@use '@/assets/styles/variables' as vars;
+@use '@/assets/styles/mixins' as *;
 .app-main {
   min-height: 100%;
 }
@@ -257,7 +317,8 @@ const nextStep = async () => {
     margin-top: 2px;
     height: 21px;
   }
-  input, textarea {
+  input,
+  textarea {
     @include input-style;
     font-size: 18px;
     font-family: vars.$sans;
@@ -277,7 +338,7 @@ const nextStep = async () => {
   }
   textarea {
     height: 300px;
-  } 
+  }
   .privacy {
     margin-top: 20px;
     .agree {
@@ -319,7 +380,7 @@ const nextStep = async () => {
         font-size: 12px;
         line-height: 1.4;
         color: #666;
-        + li{
+        + li {
           margin-top: 5px;
         }
       }
@@ -331,7 +392,7 @@ const nextStep = async () => {
   button.btn {
     @include btn-style;
   }
-  
+
   @include sp {
     dl.dl_form {
       margin: vw(40) auto 0;
@@ -356,7 +417,8 @@ const nextStep = async () => {
     .error {
       font-size: vw(12);
     }
-    input, textarea {
+    input,
+    textarea {
       font-size: vw(16);
     }
     textarea {
@@ -385,7 +447,7 @@ const nextStep = async () => {
           font-size: vw(10);
           margin-left: 1em;
           text-indent: -1em;
-          + li{
+          + li {
             margin-top: vw(5);
           }
         }
@@ -397,5 +459,3 @@ const nextStep = async () => {
   }
 }
 </style>
-
-

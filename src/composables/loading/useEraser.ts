@@ -1,5 +1,28 @@
-import { ref, onBeforeUnmount } from 'vue';
+import { ref, onBeforeUnmount, type Ref } from 'vue';
 import eraserCursor from '@/assets/images/home/eraser-cursor.png';
+
+type UseEraserOptions = {
+  canvasRef: Ref<HTMLCanvasElement | null>;
+  ctx: Ref<CanvasRenderingContext2D | null>;
+  width: Ref<number>;
+  height: Ref<number>;
+  isMobile: Ref<boolean>;
+  onFinish?: () => void;
+};
+
+type Point = {
+  x: number;
+  y: number;
+  t: number;
+};
+
+type Brush = {
+  radius: number;
+  swayAngle: number;
+  sway: number;
+  x: number;
+  y: number;
+};
 
 export function useEraser({
   canvasRef,
@@ -8,57 +31,75 @@ export function useEraser({
   height,
   isMobile,
   onFinish,
-}) {
-  const isUserErasing = ref(false);
-  let brush = { radius: 160, swayAngle: 0, sway: 40, x: 0, y: 0 };
-  let handleMouseMove = null;
-  let eraseAnimId = null;
+}: UseEraserOptions) {
+  const isUserErasing = ref<boolean>(false);
+
+  let brush: Brush = {
+    radius: 160,
+    swayAngle: 0,
+    sway: 40,
+    x: 0,
+    y: 0,
+  };
+
+  let handleMouseMove: ((e: MouseEvent) => void) | null = null;
+  let eraseAnimId: number | null = null;
 
   // ==================================================
   // 消しゴム関連処理
   // ==================================================
 
-  // 消しゴムの初期設定
-  function initEraseSettings() {
+  function initEraseSettings(): void {
+    if (!canvasRef.value || !ctx.value) return;
+
     const eraseScale = isMobile.value ? 0.35 : 1;
+
     brush.radius = 160 * eraseScale;
     brush.sway = 40 * eraseScale;
+
     canvasRef.value.style.cursor = `url(${eraserCursor}) 16 16, auto`;
     ctx.value.globalCompositeOperation = 'destination-out';
   }
 
-  // 消しゴム進捗を計算
-  function getEraseProgress() {
+  function getEraseProgress(): number {
+    if (!ctx.value) return 0;
+
     const w = Math.floor(width.value);
     const h = Math.floor(height.value);
     const imgData = ctx.value.getImageData(0, 0, w, h).data;
 
-    let total = imgData.length / 4 / 16;
+    const total = imgData.length / 4 / 16;
     let count = 0;
+
     for (let i = 0; i < imgData.length; i += 4 * 16) {
       if (imgData[i + 3] < 50) count++;
     }
+
     return count / total;
   }
 
-  // 消しゴムの描画処理
-  function eraseDrawing(e, lastMouse) {
-    if (!canvasRef.value) return;
+  function eraseDrawing(
+    e: { clientX: number; clientY: number },
+    lastMouse: Point
+  ): Point {
+    if (!ctx.value) return lastMouse;
 
     const now = Date.now();
     const dt = now - lastMouse.t || 16;
     const dx = e.clientX - lastMouse.x;
     const dy = e.clientY - lastMouse.y;
     const speed = Math.sqrt(dx * dx + dy * dy) / dt;
-    let baseRadius = brush.radius + 30 * (1 - Math.min(speed * 10, 1));
 
-    // ランダム位置に消しゴム効果を描画
+    const baseRadius = brush.radius + 30 * (1 - Math.min(speed * 10, 1));
+
     for (let i = 0; i < 3; i++) {
       const offsetX = (Math.random() - 0.5) * 20;
       const offsetY = (Math.random() - 0.5) * 20;
+
       const radius = baseRadius * (0.7 + Math.random() * 0.6);
       const rx = radius * (0.8 + Math.random() * 0.4);
       const ry = radius * (0.6 + Math.random() * 0.5);
+
       const grad = ctx.value.createRadialGradient(
         e.clientX + offsetX,
         e.clientY + offsetY,
@@ -67,8 +108,10 @@ export function useEraser({
         e.clientY + offsetY,
         radius
       );
+
       grad.addColorStop(0, 'rgba(0,0,0,1)');
       grad.addColorStop(1, 'rgba(0,0,0,0)');
+
       ctx.value.fillStyle = grad;
       ctx.value.beginPath();
       ctx.value.ellipse(
@@ -86,39 +129,47 @@ export function useEraser({
     return { x: e.clientX, y: e.clientY, t: now };
   }
 
-  // モバイル対応のタッチイベント処理
-  function handleTouchEvent(e) {
+  function handleTouchEvent(e: TouchEvent): void {
+    if (!handleMouseMove || e.touches.length === 0) return;
+
     handleMouseMove({
       clientX: e.touches[0].clientX,
       clientY: e.touches[0].clientY,
-    });
+    } as MouseEvent);
+
     e.preventDefault();
   }
 
-  // 自動消しゴムアニメーション処理
-  function autoErase() {
+  function autoErase(): void {
+    if (!ctx.value) return;
+
     const angle = Math.random() * Math.PI * 2;
+
     const dist = isMobile.value
       ? 20 + Math.random() * 20
       : 30 + Math.random() * 30;
+
     brush.x = Math.max(
       0,
       Math.min(width.value, brush.x + Math.cos(angle) * dist)
     );
+
     brush.y = Math.max(
       0,
       Math.min(height.value, brush.y + Math.sin(angle) * dist)
     );
+
     brush.swayAngle += 0.5;
     const sway = Math.sin(brush.swayAngle) * brush.sway;
 
-    // ランダムな消しゴム効果を描画
     for (let i = 0; i < 3; i++) {
       const offsetX = (Math.random() - 0.5) * 20;
       const offsetY = (Math.random() - 0.5) * 20;
+
       const radius = brush.radius * (0.7 + Math.random() * 0.6);
       const rx = radius * (0.8 + Math.random() * 0.4);
       const ry = radius * (0.6 + Math.random() * 0.5);
+
       const grad = ctx.value.createRadialGradient(
         brush.x + sway + offsetX,
         brush.y + offsetY,
@@ -127,8 +178,10 @@ export function useEraser({
         brush.y + offsetY,
         radius
       );
+
       grad.addColorStop(0, 'rgba(0,0,0,1)');
       grad.addColorStop(1, 'rgba(0,0,0,0)');
+
       ctx.value.fillStyle = grad;
       ctx.value.beginPath();
       ctx.value.ellipse(
@@ -144,66 +197,63 @@ export function useEraser({
     }
   }
 
-  // 消しゴムループ
-  function eraseLoop(lastMouse) {
+  function eraseLoop(lastMouse: Point): void {
     if (!canvasRef.value) return;
-    if (!(isMobile.value && isUserErasing.value)) autoErase();
+
+    if (!(isMobile.value && isUserErasing.value)) {
+      autoErase();
+    }
+
     if (getEraseProgress() >= 0.9) {
-      onFinish && onFinish();
+      onFinish?.();
       return;
     }
+
     eraseAnimId = requestAnimationFrame(() => eraseLoop(lastMouse));
   }
 
-  // ==================================================
-  // 消しゴムの動作開始
-  // ==================================================
-  function startErase() {
+  function startErase(): void {
     if (!canvasRef.value) return;
 
-    initEraseSettings(); // 初期設定を行う
+    initEraseSettings();
 
-    let lastMouse = { x: 0, y: 0, t: Date.now() };
+    let lastMouse: Point = { x: 0, y: 0, t: Date.now() };
 
-    // マウス移動のイベントハンドラ
-    handleMouseMove = (e) => {
+    handleMouseMove = (e: MouseEvent) => {
       lastMouse = eraseDrawing(e, lastMouse);
     };
 
     canvasRef.value.addEventListener('mousemove', handleMouseMove);
 
-    // モバイルデバイス用のタッチイベント
     if (isMobile.value) {
       canvasRef.value.addEventListener('touchstart', (e) => {
         isUserErasing.value = true;
         e.preventDefault();
       });
+
       canvasRef.value.addEventListener('touchend', (e) => {
         isUserErasing.value = false;
         e.preventDefault();
       });
+
       canvasRef.value.addEventListener('touchmove', handleTouchEvent, {
         passive: false,
       });
     }
 
-    // 消しゴムアニメーション開始
     eraseAnimId = requestAnimationFrame(() => eraseLoop(lastMouse));
   }
 
-  // ==================================================
-  // ライフサイクル処理
-  // ==================================================
   onBeforeUnmount(() => {
     if (canvasRef.value && handleMouseMove) {
       canvasRef.value.removeEventListener('mousemove', handleMouseMove);
     }
-    if (eraseAnimId) cancelAnimationFrame(eraseAnimId);
+
+    if (eraseAnimId !== null) {
+      cancelAnimationFrame(eraseAnimId);
+    }
   });
 
-  // ==================================================
-  // 戻り値
-  // ==================================================
   return {
     startErase,
     isUserErasing,

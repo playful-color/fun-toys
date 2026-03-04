@@ -23,14 +23,16 @@
   </nav>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { useNavigationStore } from '@/stores/navigation';
 import logo from '@/assets/images/common/logo.png';
 
 // ストアからナビゲーションデータを取得
 const nav = useNavigationStore();
-const menuOpen = ref(false);
+
+// メニュー開閉状態
+const menuOpen = ref<boolean>(false);
 
 // メニューの開閉トグル
 function toggleMenu() {

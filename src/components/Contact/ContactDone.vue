@@ -2,32 +2,35 @@
   <div class="done">
     <h2>送信が完了しました！</h2>
     <p class="txt">お問い合わせありがとうございました。</p>
-    <p class="txt">内容によってはお時間を<br class="sp">いただく場合がございますが、<br>通常2〜3日以内にご連絡いたします。</p>
+    <p class="txt">
+      内容によってはお時間を<br
+        class="sp"
+      />いただく場合がございますが、<br />通常2〜3日以内にご連絡いたします。
+    </p>
     <button class="btn" @click="again">もう一度問い合わせる</button>
-    <router-link to="/" class="back">
-      塗り絵をもう一度体験する
-    </router-link>
+    <router-link to="/" class="back"> 塗り絵をもう一度体験する </router-link>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { useContactStore } from '@/stores/useContactStore';
 
-import { useContactStore } from "@/stores/useContactStore";
+const store = useContactStore();
 
-const store = useContactStore()
+// emit の型定義
+const emit = defineEmits<{
+  (e: 'reset'): void;
+}>();
 
-const emit = defineEmits(['reset'])
-
+// リセットイベント発火
 const again = () => {
-  emit('reset')
-}
-
+  emit('reset');
+};
 </script>
 
-
 <style lang="scss" scoped>
-@use "@/assets/styles/variables" as vars;
-@use "@/assets/styles/mixins" as *;
+@use '@/assets/styles/variables' as vars;
+@use '@/assets/styles/mixins' as *;
 
 .done {
   @include step-container;
@@ -45,6 +48,3 @@ const again = () => {
   }
 }
 </style>
-
-
-

@@ -15,8 +15,8 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue';
+<script setup lang="ts">
+import { ref, onMounted, type Ref } from 'vue';
 import { useCanvasSetup } from '@/composables/loading/useCanvasSetup';
 import { useSvgDraw } from '@/composables/loading/useSvgDraw';
 import { useEraser } from '@/composables/loading/useEraser';
@@ -27,6 +27,7 @@ import crayonBg from '@/assets/images/home/crayon-bg.jpg';
 // Canvasセットアップ
 // ==================================================
 const { canvasRef, ctx, width, height, isMobile } = useCanvasSetup();
+
 const { drawNext, lastDrawPos } = useSvgDraw({
   canvasRef,
   ctx,
@@ -38,19 +39,30 @@ const { drawNext, lastDrawPos } = useSvgDraw({
 // ==================================================
 // 状態管理
 // ==================================================
-const isFinished = ref(false);
-const emit = defineEmits(['finished']);
-const isMessageVisible = ref(false);
-const messagePos = ref({ top: 0, left: 0 });
+const isFinished = ref<boolean>(false);
+
+const emit = defineEmits<{
+  (e: 'finished'): void;
+}>();
+
+const isMessageVisible = ref<boolean>(false);
+
+const messagePos = ref<{ top: number; left: number }>({
+  top: 0,
+  left: 0,
+});
 
 // ==================================================
 // メッセージ表示関数
 // ==================================================
-function showMessageToErase(x, y) {
+function showMessageToErase(x: number, y: number): void {
   if (!canvasRef.value) return;
+
   const rect = canvasRef.value.getBoundingClientRect();
+
   messagePos.value.top = rect.top + y - 100;
   messagePos.value.left = rect.left + x - 30;
+
   isMessageVisible.value = true;
 
   setTimeout(() => {
@@ -61,7 +73,7 @@ function showMessageToErase(x, y) {
 // ==================================================
 // Canvas完了処理
 // ==================================================
-function finishCanvas() {
+function finishCanvas(): void {
   isFinished.value = true;
   emit('finished');
 }
@@ -69,26 +81,40 @@ function finishCanvas() {
 // ==================================================
 // 背景描画関数
 // ==================================================
-let cachedBgImage = null;
+let cachedBgImage: HTMLImageElement | null = null;
 
-async function drawImageBackground(ctx, width, height, src) {
+function drawImageBackground(
+  context: CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  src: string
+): Promise<void> {
   return new Promise((resolve) => {
     if (cachedBgImage) {
-      // キャッシュがあればすぐ描画
-      const pattern = ctx.createPattern(cachedBgImage, 'repeat');
-      ctx.fillStyle = pattern;
-      ctx.fillRect(0, 0, width, height);
+      const pattern = context.createPattern(cachedBgImage, 'repeat');
+
+      if (pattern) {
+        context.fillStyle = pattern;
+        context.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
+
       resolve();
       return;
     }
 
     const img = new Image();
     img.src = src;
+
     img.onload = () => {
-      cachedBgImage = img; // キャッシュ
-      const pattern = ctx.createPattern(img, 'repeat');
-      ctx.fillStyle = pattern;
-      ctx.fillRect(0, 0, width, height);
+      cachedBgImage = img;
+
+      const pattern = context.createPattern(img, 'repeat');
+
+      if (pattern) {
+        context.fillStyle = pattern;
+        context.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
+
       resolve();
     };
   });
@@ -110,13 +136,15 @@ const { startErase } = useEraser({
 // ライフサイクル処理
 // ==================================================
 onMounted(async () => {
+  if (!ctx.value) return;
+
   // 背景描画
   await drawImageBackground(ctx.value, width.value, height.value, crayonBg);
 
   // SVG描画開始
   drawNext((lastPos) => {
-    // 描画完了後にメッセージ表示＆消しゴム開始
     showMessageToErase(lastPos.x + 30, lastPos.y - 100);
+
     startErase();
   });
 });

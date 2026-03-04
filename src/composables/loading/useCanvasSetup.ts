@@ -1,19 +1,26 @@
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, type Ref } from 'vue';
 
 export function useCanvasSetup() {
-  const canvasRef = ref(null);
-  const ctx = ref(null);
-  const width = ref(window.innerWidth);
-  const height = ref(window.innerHeight);
-  const isMobile = ref(false);
+  const canvasRef: Ref<HTMLCanvasElement | null> = ref(null);
+  const ctx: Ref<CanvasRenderingContext2D | null> = ref(null);
+  const width: Ref<number> = ref(window.innerWidth);
+  const height: Ref<number> = ref(window.innerHeight);
+  const isMobile: Ref<boolean> = ref(false);
 
   // ==================================================
   // Canvasの初期化
   // ==================================================
 
-  function initCanvas() {
+  function initCanvas(): void {
     if (!canvasRef.value) return;
-    ctx.value = canvasRef.value.getContext('2d', { willReadFrequently: true });
+
+    const context = canvasRef.value.getContext('2d', {
+      willReadFrequently: true,
+    });
+
+    if (!context) return;
+
+    ctx.value = context;
     width.value = canvasRef.value.width = window.innerWidth;
     height.value = canvasRef.value.height = window.innerHeight;
     isMobile.value = window.matchMedia('(pointer: coarse)').matches;
@@ -23,8 +30,9 @@ export function useCanvasSetup() {
   // ウィンドウサイズ変更時の処理
   // ==================================================
 
-  function handleResize() {
+  function handleResize(): void {
     if (!canvasRef.value) return;
+
     width.value = canvasRef.value.width = window.innerWidth;
     height.value = canvasRef.value.height = window.innerHeight;
   }
@@ -32,18 +40,20 @@ export function useCanvasSetup() {
   // ==================================================
   // ライフサイクル処理
   // ==================================================
-  onMounted(() => {
+
+  onMounted((): void => {
     initCanvas();
     window.addEventListener('resize', handleResize);
   });
 
-  onBeforeUnmount(() => {
+  onBeforeUnmount((): void => {
     window.removeEventListener('resize', handleResize);
   });
 
   // ==================================================
   // 戻り値
   // ==================================================
+
   return {
     canvasRef,
     ctx,
