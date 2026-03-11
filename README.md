@@ -120,7 +120,8 @@ Fun Toysでは、**UI・描画・状態管理・初期化・アニメーショ�
 - フィードバックを受けながら改善中
 - スマートフォン端末差異（特にiPhone / Android）の挙動調整を実施
 - UI構成・管理分離の見直しを進行中
-
+- storke→action
+  
 ---
 
 ## 今後の予定
@@ -129,5 +130,5 @@ Fun Toysでは、**UI・描画・状態管理・初期化・アニメーショ�
 - 管理ロジックの整理
 - UI調整・追加機能の検討
 - Color Picker（chromepicker）への変更検討
-- TypeScript化（一部完了）
+- TypeScript化（完了）
 
