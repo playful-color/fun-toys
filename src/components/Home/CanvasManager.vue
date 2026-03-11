@@ -37,6 +37,7 @@ import { useCanvas } from '@/composables/home/useCanvas';
 import { useCharacterRenderer } from '@/composables/home/useCharacterRenderer';
 import { useCharacterImage } from '@/composables/home/useCharacterImage';
 import { useTouchGestures } from '@/composables/home/useTouchGestures';
+import { useBucket } from '@/composables/home/useBucket';
 
 // ==================================================
 // 型定義
@@ -72,6 +73,7 @@ const emit = defineEmits<{
   (e: 'closePalette'): void;
   (e: 'updateUndoRedo', value: { undo: () => void; redo: () => void }): void;
   (e: 'updateSaveImage', value: () => void): void;
+  (e: 'update:showColorPicker', val: boolean): void;
 }>();
 
 // ==================================================

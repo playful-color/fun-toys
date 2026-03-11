@@ -1,26 +1,13 @@
 import { defineStore } from 'pinia';
 import { ref, Ref } from 'vue';
-
-// ストロークの型定義
-interface Stroke {
-  points: { x: number; y: number }[]; // ストロークのポイント
-  color: { r: number; g: number; b: number; a: number }; // 色
-  size: number; // サイズ
-  isEraser: boolean; // 消しゴムかどうか
-}
+import type { PainterStore, PaintAction } from '@/types/painter';
 
 export const usePainterStore = defineStore('painter', () => {
-  // 描画状態
   const isPainting: Ref<boolean> = ref(false);
-
-  // ストロークの履歴
-  const strokes: Ref<Stroke[]> = ref([]);
-
-  // 現在のストロークインデックス
-  const strokeIndex: Ref<number> = ref(-1);
-
-  // 現在のストローク
-  const currentStroke: Ref<Stroke | null> = ref(null);
+  const actions: Ref<PaintAction[]> = ref([]);
+  const actionIndex: Ref<number> = ref(-1);
+  const currentAction: Ref<PaintAction | null> = ref(null);
+  const MAX_HISTORY_SIZE = 100;
 
   // 描画開始
   function startPainting(): void {
@@ -32,14 +19,40 @@ export const usePainterStore = defineStore('painter', () => {
     isPainting.value = false;
   }
 
-  // 描画状態を保存する関数
+  function addAction(action: PaintAction): void {
+    actions.value = actions.value.slice(0, actionIndex.value + 1);
+    actions.value.push(action);
+    if (actions.value.length > MAX_HISTORY_SIZE) {
+      actions.value.shift();
+    }
+    actionIndex.value = actions.value.length - 1;
+    save();
+  }
+
+  // Undo
+  function undo(): void {
+    if (actionIndex.value >= 0) {
+      actionIndex.value--;
+      save();
+    }
+  }
+
+  // Redo
+  function redo(): void {
+    if (actionIndex.value < actions.value.length - 1) {
+      actionIndex.value++;
+      save();
+    }
+  }
+
+  // 保存
   function save(): void {
     try {
       localStorage.setItem(
-        'painterStrokes',
+        'painterActions',
         JSON.stringify({
-          strokes: strokes.value,
-          strokeIndex: strokeIndex.value,
+          actions: actions.value,
+          actionIndex: actionIndex.value,
         })
       );
     } catch (error) {
@@ -47,57 +60,28 @@ export const usePainterStore = defineStore('painter', () => {
     }
   }
 
-  // 描画状態を復元する関数
+  // 復元
   function restore(): void {
-    const raw = localStorage.getItem('painterStrokes');
+    const raw = localStorage.getItem('painterActions');
     if (!raw) return;
 
     try {
       const data = JSON.parse(raw);
-      strokes.value = data.strokes || [];
-      strokeIndex.value = data.strokeIndex ?? strokes.value.length - 1;
+      actions.value = data.actions || [];
+      actionIndex.value = data.actionIndex ?? actions.value.length - 1;
     } catch (error) {
       console.error('復元中にエラーが発生しました', error);
     }
-  }
-
-  // Undo処理
-  function undo(): void {
-    if (strokeIndex.value >= 0) {
-      strokeIndex.value--;
-      save();
-    }
-  }
-
-  // Redo処理
-  function redo(): void {
-    if (strokeIndex.value < strokes.value.length - 1) {
-      strokeIndex.value++;
-      save();
-    }
-  }
-
-  // 新しいストロークを追加する関数
-  const MAX_HISTORY_SIZE = 100;
-
-  function addStroke(stroke: Stroke): void {
-    strokes.value = strokes.value.slice(0, strokeIndex.value + 1);
-    strokes.value.push(stroke);
-    if (strokes.value.length > MAX_HISTORY_SIZE) {
-      strokes.value.shift();
-    }
-    strokeIndex.value = strokes.value.length - 1;
-    save();
   }
 
   return {
     isPainting,
     startPainting,
     stopPainting,
-    strokes,
-    strokeIndex,
-    currentStroke,
-    addStroke,
+    actions,
+    actionIndex,
+    currentAction,
+    addAction,
     undo,
     redo,
     save,

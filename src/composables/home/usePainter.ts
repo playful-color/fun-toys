@@ -1,3 +1,4 @@
+//usePainter.ts
 import { onMounted, watch, ref, Ref } from 'vue';
 import { useColorStore } from '@/stores/useColorStore';
 import { usePainterStore } from '@/stores/usePainterStore';
@@ -38,9 +39,9 @@ export function usePainter({
   const colorStore = useColorStore();
   const painterStore = usePainterStore();
 
-  // =============================
+  // ==================================================
   // 描画再描画
-  // =============================
+  // ==================================================
   const { redrawPaint } = useRendering({
     paintCanvas,
     scale,
@@ -49,9 +50,9 @@ export function usePainter({
     painterStore,
   });
 
-  // =============================
+  // ==================================================
   // 座標取得
-  // =============================
+  // ==================================================
   const { getEventPos } = useCoordinate({
     paintCanvas,
     scale,
@@ -59,9 +60,9 @@ export function usePainter({
     panY,
   });
 
-  // =============================
+  // ==================================================
   // 描画操作
-  // =============================
+  // ==================================================
   const { startDrawing, draw, stopDrawing, isPainting } = useDrawing({
     paintCanvas,
     isEraser,
@@ -77,14 +78,14 @@ export function usePainter({
     getEventPos,
   });
 
-  // =============================
+  // ==================================================
   // スケール・パン
-  // =============================
+  // ==================================================
   const initialScale = ref<number>(1);
 
-  // =============================
+  // ==================================================
   // Undo / Redo
-  // =============================
+  // ==================================================
   const undo = (): void => {
     painterStore.undo();
     redrawPaint();
@@ -95,31 +96,25 @@ export function usePainter({
     redrawPaint();
   };
 
-  // =============================
+  // ==================================================
   // 描画リセット
-  // =============================
+  // ==================================================
   const resetPaint = (): void => {
-    painterStore.strokes = [];
-    painterStore.strokeIndex = -1;
-    painterStore.currentStroke = null;
-    localStorage.removeItem('painterStrokes');
+    painterStore.actions = [];
+    painterStore.actionIndex = -1;
+    painterStore.currentAction = null;
+    localStorage.removeItem('painterActions');
 
     if (paintCanvas.value) {
       const ctx = paintCanvas.value.getContext('2d');
       if (!ctx) return;
-
-      ctx.clearRect(
-        0,
-        0,
-        paintCanvas.value.width,
-        paintCanvas.value.height
-      );
+      ctx.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
     }
   };
 
-  // =============================
+  // ==================================================
   // 初期復元
-  // =============================
+  // ==================================================
   painterStore.restore();
   redrawPaint();
 

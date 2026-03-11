@@ -1,29 +1,12 @@
 import { ref, Ref } from 'vue';
+import type { BrushAction, PaintAction, Color, Point } from '@/types/painter';
+import { drawAction } from '@/utils/drawAction';
 
-interface Color {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface Stroke {
-  color: Color | null;
-  points: Point[];
-  size: number;
-  isEraser: boolean;
-}
-
-interface PainterStore {
+interface PainterStoreLike {
   isPainting: boolean;
-  strokes: Stroke[];
-  strokeIndex: number;
-  addStroke(stroke: Stroke): void;
+  actions: PaintAction[];
+  actionIndex: number;
+  addAction(action: PaintAction): void;
 }
 
 interface ColorStore {
@@ -39,6 +22,7 @@ interface CursorPosition {
 
 interface UseDrawingProps {
   paintCanvas: Ref<HTMLCanvasElement | null>;
+  lineCanvas?: Ref<HTMLCanvasElement | null>; // バケツ再描画用
   isEraser: Ref<boolean>;
   brushSize: Ref<number>;
   eraserSize: Ref<number>;
@@ -46,14 +30,21 @@ interface UseDrawingProps {
   panX: Ref<number>;
   panY: Ref<number>;
   colorStore: ColorStore;
-  painterStore: PainterStore;
+  painterStore: PainterStoreLike;
   cursorPos: Ref<CursorPosition>;
   isMobile: Ref<boolean>;
   getEventPos: (e: MouseEvent | TouchEvent) => Point;
+  bucketFill?: (
+    x: number,
+    y: number,
+    color: Color,
+    skipHistory?: boolean
+  ) => void;
 }
 
 export function useDrawing({
   paintCanvas,
+  lineCanvas,
   isEraser,
   brushSize,
   eraserSize,
@@ -65,24 +56,25 @@ export function useDrawing({
   cursorPos,
   isMobile,
   getEventPos,
+  bucketFill,
 }: UseDrawingProps) {
   const isPainting = ref(false);
-  const currentStroke = ref<Stroke | null>(null);
+  const currentAction = ref<BrushAction | null>(null);
   const isDrawing = ref(false);
 
   let lastDrawTime = 0;
   const drawInterval = 16; // 約60fps
 
   // ==================================================
-  // 描画
+  // ブラシ描画
   // ==================================================
   function paint(pos: Point): void {
     const now = Date.now();
     if (now - lastDrawTime < drawInterval) return;
     lastDrawTime = now;
 
-    const stroke = currentStroke.value;
-    if (!stroke) return;
+    const action = currentAction.value;
+    if (!action) return;
 
     const ctx = paintCanvas.value?.getContext('2d');
     if (!ctx) return;
@@ -90,25 +82,20 @@ export function useDrawing({
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const radius = baseSize * 0.3;
 
-    const color = isEraser.value ? null : colorStore.selectedColor;
+    const color: Color = isEraser.value
+      ? { r: 0, g: 0, b: 0, a: 1 }
+      : { ...colorStore.selectedColor };
 
     ctx.globalCompositeOperation = isEraser.value
       ? 'destination-out'
       : 'source-over';
-
-    if (color) {
-      ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},${color.a})`;
-      ctx.globalAlpha = color.a;
-    } else {
-      // 消しゴムの場合
-      ctx.fillStyle = 'rgba(0,0,0,1)';
-      ctx.globalAlpha = 1;
-    }
+    ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},${color.a})`;
+    ctx.globalAlpha = isEraser.value ? 1 : color.a;
 
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    const points = stroke.points;
+    const points = action.points;
     const last = points[points.length - 1];
 
     if (last) {
@@ -120,41 +107,26 @@ export function useDrawing({
         ctx.beginPath();
         ctx.arc(ix, iy, radius, 0, Math.PI * 2);
         ctx.fill();
-        stroke.points.push({ x: ix, y: iy });
+        points.push({ x: ix, y: iy });
       }
     } else {
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
       ctx.fill();
-      stroke.points.push({ x: pos.x, y: pos.y });
+      points.push({ x: pos.x, y: pos.y });
     }
 
-    stroke.size = baseSize;
-    stroke.isEraser = isEraser.value;
-    if (!isEraser.value && color) stroke.color = { ...color };
+    action.size = baseSize;
+    action.isEraser = isEraser.value;
+    action.color = isEraser.value
+      ? { r: 0, g: 0, b: 0, a: 1 }
+      : { ...colorStore.selectedColor };
   }
 
-  function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke): void {
-    ctx.globalCompositeOperation = stroke.isEraser
-      ? 'destination-out'
-      : 'source-over';
-    if (stroke.isEraser || !stroke.color) {
-      ctx.fillStyle = 'rgba(0,0,0,1)';
-      ctx.globalAlpha = 1;
-    } else {
-      const c = stroke.color;
-      ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${c.a})`;
-      ctx.globalAlpha = c.a;
-    }
-
-    stroke.points.forEach((p) => {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, stroke.size * 0.3, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  }
-
-  function redrawPaint(): void {
+  // ==================================================
+  // 再描画（ブラシ＋バケツまとめて）
+  // ==================================================
+  function redrawPaint() {
     const canvas = paintCanvas.value;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -164,16 +136,17 @@ export function useDrawing({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(scale.value, 0, 0, scale.value, panX.value, panY.value);
 
-    painterStore.strokes
-      .slice(0, painterStore.strokeIndex + 1)
-      .forEach((s) => drawStroke(ctx, s));
-    if (currentStroke.value) drawStroke(ctx, currentStroke.value);
+    painterStore.actions.slice(0, painterStore.actionIndex + 1).forEach((a) => {
+      drawAction(ctx, a, bucketFill);
+    });
+
+    if (currentAction.value) drawAction(ctx, currentAction.value, bucketFill);
   }
 
   // ==================================================
   // 描画操作
   // ==================================================
-  function startDrawing(e: MouseEvent | TouchEvent): void {
+  function startDrawing(e: MouseEvent | TouchEvent) {
     if (isDrawing.value || (e instanceof MouseEvent && e.buttons !== 1)) return;
 
     const pos = getEventPos(e);
@@ -183,17 +156,20 @@ export function useDrawing({
 
     if (!isEraser.value) colorStore.pushRecentColor(colorStore.selectedColor);
 
-    currentStroke.value = {
-      color: isEraser.value ? null : { ...colorStore.selectedColor },
+    currentAction.value = {
+      type: 'brush',
       points: [],
       size: isEraser.value ? eraserSize.value : brushSize.value,
       isEraser: isEraser.value,
+      color: isEraser.value
+        ? { r: 0, g: 0, b: 0, a: 1 }
+        : { ...colorStore.selectedColor },
     };
   }
 
   let isDrawingFrame = false;
 
-  function draw(e: MouseEvent | TouchEvent): void {
+  function draw(e: MouseEvent | TouchEvent) {
     if (!isDrawing.value) return;
 
     if (!isDrawingFrame) {
@@ -211,20 +187,21 @@ export function useDrawing({
     }
   }
 
-  function stopDrawing(): void {
+  function stopDrawing() {
     if (!isDrawing.value) return;
 
     isDrawing.value = false;
     isPainting.value = false;
     painterStore.isPainting = false;
 
-    if (!currentStroke.value || currentStroke.value.points.length < 2) {
-      currentStroke.value = null;
+    if (!currentAction.value || currentAction.value.points.length < 2) {
+      currentAction.value = null;
       return;
     }
 
-    painterStore.addStroke(currentStroke.value);
-    currentStroke.value = null;
+    painterStore.addAction(currentAction.value);
+    currentAction.value = null;
+
     redrawPaint();
   }
 
@@ -233,5 +210,6 @@ export function useDrawing({
     startDrawing,
     draw,
     stopDrawing,
+    redrawPaint,
   };
 }
