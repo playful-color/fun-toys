@@ -243,23 +243,22 @@ export function useDrawing({
   // ==================================================
   // spark専用アニメーションループ
   // ==================================================
-  function startSparkAnimation(): void {
+  function startSparkAnimation() {
     if (isSparkAnimating) return;
 
     isSparkAnimating = true;
 
-    const loop = (): void => {
+    const loop = () => {
       redrawPaint();
 
       if (sparkEffect.hasSparks()) {
-        rafId = requestAnimationFrame(loop);
+        requestAnimationFrame(loop);
       } else {
         isSparkAnimating = false;
-        rafId = null;
       }
     };
 
-    rafId = requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
   }
 
   function stopSparkAnimation(): void {

@@ -1,4 +1,3 @@
-//☆
 <template>
   <div class="canvas-viewport">
     <div v-if="cursorVisible" :style="cursorStyle" class="mobile-cursor"></div>
@@ -196,16 +195,10 @@ let lineCtx: CanvasRenderingContext2D | null = null;
 let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
 function handleResize(): void {
-  if (resizeTimer) clearTimeout(resizeTimer);
-
-  resizeTimer = window.setTimeout(() => {
-    resizeCanvasToWrapper();
-    requestAnimationFrame(() => {
-      centerAllCharacters();
-      drawAllCharacters();
-      updateBrushCursor();
-    });
-  }, 100);
+  resizeCanvasToWrapper();
+  centerAllCharacters();
+  drawAllCharacters();
+  updateBrushCursor();
 }
 
 function switchDevice(): void {
@@ -394,11 +387,10 @@ onMounted(() => {
       height:
         (isMobile.value ? 400 : 1000) * (img.naturalHeight / img.naturalWidth),
     });
-    requestAnimationFrame(() => {
-      handleResize();
-      updateBrushCursor();
-      canvasReady.value = true;
-    });
+
+    handleResize();
+    updateBrushCursor();
+    canvasReady.value = true;
   };
 });
 
