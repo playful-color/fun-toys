@@ -1,3 +1,4 @@
+//☆
 <template>
   <div class="canvas-viewport">
     <div v-if="cursorVisible" :style="cursorStyle" class="mobile-cursor"></div>
@@ -17,6 +18,11 @@
         :style="{ cursor: brushCursor }"
       >
       </canvas>
+      <canvas
+        ref="sparkCanvas"
+        class="layer spark"
+        style="pointer-events: none"
+      ></canvas>
     </div>
   </div>
 </template>
@@ -37,8 +43,9 @@ import { useCanvas } from '@/composables/home/useCanvas';
 import { useCharacterRenderer } from '@/composables/home/useCharacterRenderer';
 import { useCharacterImage } from '@/composables/home/useCharacterImage';
 import { useTouchGestures } from '@/composables/home/useTouchGestures';
+import { useSparkEffect } from '@/effects/useSparkEffect';
 import { useBucket } from '@/composables/home/useBucket';
-
+const sparkEffect = useSparkEffect();
 // ==================================================
 // 型定義
 // ==================================================
@@ -66,6 +73,7 @@ const props = defineProps<{
   brushSize: number;
   eraserSize: number;
   selectedColor: Color;
+  brushType: 'normal' | 'marker';
 }>();
 
 const emit = defineEmits<{
@@ -82,6 +90,7 @@ const emit = defineEmits<{
 const lineCanvas = ref<HTMLCanvasElement | null>(null);
 const paintCanvas = ref<HTMLCanvasElement | null>(null);
 const canvasWrapper = ref<HTMLDivElement | null>(null);
+const sparkCanvas = ref<HTMLCanvasElement | null>(null);
 
 const scale = ref(1);
 const initialScale = ref(1);
@@ -184,11 +193,19 @@ let lineCtx: CanvasRenderingContext2D | null = null;
 // ==================================================
 // リサイズ
 // ==================================================
+let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+
 function handleResize(): void {
-  resizeCanvasToWrapper();
-  centerAllCharacters();
-  drawAllCharacters();
-  updateBrushCursor();
+  if (resizeTimer) clearTimeout(resizeTimer);
+
+  resizeTimer = window.setTimeout(() => {
+    resizeCanvasToWrapper();
+    requestAnimationFrame(() => {
+      centerAllCharacters();
+      drawAllCharacters();
+      updateBrushCursor();
+    });
+  }, 100);
 }
 
 function switchDevice(): void {
@@ -278,9 +295,44 @@ onMounted(() => {
   initCtx();
   handleResize();
 
+  const canvas = sparkCanvas.value;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  let animationId: number | null = null;
+
+  const loop = (): void => {
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    sparkEffect.updateAndRender(ctx);
+
+    if (sparkEffect.hasSparks()) {
+      animationId = requestAnimationFrame(loop);
+    } else {
+      animationId = null;
+    }
+  };
+
+  loop();
+
+  onUnmounted((): void => {
+    if (animationId !== null) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+
+    sparkEffect.reset();
+  });
+
   const painter = usePainter({
     paintCanvas,
     isEraser: computed(() => props.isEraser),
+    brushType: computed(() => props.brushType),
     brushSize: computed(() => props.brushSize),
     eraserSize: computed(() => props.eraserSize),
     selectedColor: computed(() => props.selectedColor),
@@ -342,9 +394,11 @@ onMounted(() => {
       height:
         (isMobile.value ? 400 : 1000) * (img.naturalHeight / img.naturalWidth),
     });
-    handleResize();
-    updateBrushCursor();
-    canvasReady.value = true;
+    requestAnimationFrame(() => {
+      handleResize();
+      updateBrushCursor();
+      canvasReady.value = true;
+    });
   };
 });
 
@@ -389,6 +443,10 @@ onUnmounted(() => {
     &.paint {
       z-index: 1;
       background: rgba(255, 255, 255, 0.7);
+    }
+    &.spark {
+      z-index: 3;
+      pointer-events: none;
     }
   }
 }

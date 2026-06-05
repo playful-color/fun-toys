@@ -3,6 +3,35 @@
     <div class="toolbar-inner show">
       <div class="color_wraper" v-show="showColorPicker" :style="pickerStyle">
         <ColorPicker />
+
+        <div class="brush_tools">
+          <button
+            @click="emit('update:brushType', 'normal')"
+            :class="{
+              selected: brushType === 'normal',
+              'not-selected': brushType !== 'normal',
+            }"
+          >
+            <font-awesome-icon
+              icon="paintbrush"
+              :style="{ color: brushIconColor }"
+            />
+            <span class="label">ふつう</span>
+          </button>
+          <button
+            @click="emit('update:brushType', 'marker')"
+            :class="{
+              selected: brushType === 'marker',
+              'not-selected': brushType !== 'marker',
+            }"
+          >
+            <font-awesome-icon
+              icon="wand-magic-sparkles"
+              :style="{ color: brushIconColor }"
+            />
+            <span class="label">まほう</span>
+          </button>
+        </div>
       </div>
 
       <button
@@ -11,7 +40,7 @@
         class="brush-btn icon-button"
       >
         <font-awesome-icon
-          icon="paintbrush"
+          :icon="brushIcon"
           :style="{ color: brushIconColor }"
         />
         <span class="label">ブラシ</span>
@@ -130,12 +159,15 @@ interface Color {
   b: number;
   a: number;
 }
-
+const brushIcon = computed(() => {
+  return props.brushType === 'marker' ? 'wand-magic-sparkles' : 'paintbrush';
+});
 const props = defineProps<{
   isPainting: boolean;
   showColorPicker: boolean;
   isEraser: boolean;
   brushSize: number;
+  brushType: 'normal' | 'marker';
   eraserSize: number;
   undo: () => void;
   redo: () => void;
@@ -144,6 +176,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:brushSize', val: number): void;
+  (e: 'update:brushType', val: 'normal' | 'marker'): void;
   (e: 'update:eraserSize', val: number): void;
   (e: 'update:isEraser', val: boolean): void;
   (e: 'update:showColorPicker', val: boolean): void;
@@ -292,7 +325,20 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @use '@/assets/styles/variables' as vars;
 @use '@/assets/styles/mixins' as *;
-
+.color_wraper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 10px;
+  .brush_tools {
+    display: flex;
+    gap: 10px;
+  }
+}
 .toolbar {
   width: 1200px;
   margin: 0 auto;
@@ -314,6 +360,13 @@ onBeforeUnmount(() => {
       background: none;
       cursor: pointer;
     }
+  }
+  .not-selected {
+    opacity: 0.3;
+  }
+  .selected {
+    opacity: 1;
+    transform: scale(1.05);
   }
   @include sp {
     width: 10vw;

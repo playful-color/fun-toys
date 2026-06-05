@@ -1,4 +1,6 @@
-// src/utils/drawAction.ts
+import { drawNormalBrush } from '@/brushes/normalBrush';
+import { drawMarkerBrush } from '@/brushes/markerBrush';
+
 import type {
   PaintAction,
   BrushAction,
@@ -38,21 +40,24 @@ export function drawAction(
         : 'source-over';
 
       // 塗り色設定
-      if (brush.isEraser || !brush.color) {
-        ctx.fillStyle = 'rgba(0,0,0,1)';
-        ctx.globalAlpha = 1;
+      if (brush.isEraser) {
+        ctx.globalCompositeOperation = 'destination-out';
+        return drawNormalBrush(ctx, brush);
       } else {
-        const c = brush.color;
+        // 消しゴムじゃない場合だけ色を使う
+        const c = brush.color ?? { r: 0, g: 0, b: 0, a: 1 };
+
+        ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${c.a})`;
         ctx.globalAlpha = c.a;
       }
 
-      // ストローク描画
-      for (const p of brush.points) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, brush.size * 0.3, 0, Math.PI * 2);
-        ctx.fill();
+      if (brush.brushType === 'marker') {
+        drawMarkerBrush(ctx, brush);
+      } else {
+        drawNormalBrush(ctx, brush);
       }
+
       return;
     }
   }

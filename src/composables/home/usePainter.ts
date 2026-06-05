@@ -9,6 +9,7 @@ import { useRendering } from '@/composables/home/useRendering';
 interface UsePainterOptions {
   paintCanvas: Ref<HTMLCanvasElement | null>;
   isEraser: Ref<boolean>;
+  brushType: Ref<'normal' | 'marker'>;
   brushSize: Ref<number>;
   eraserSize: Ref<number>;
   selectedColor: Ref<{
@@ -27,6 +28,7 @@ interface UsePainterOptions {
 export function usePainter({
   paintCanvas,
   isEraser,
+  brushType,
   brushSize,
   eraserSize,
   selectedColor,
@@ -66,6 +68,7 @@ export function usePainter({
   const { startDrawing, draw, stopDrawing, isPainting } = useDrawing({
     paintCanvas,
     isEraser,
+    brushType,
     brushSize,
     eraserSize,
     scale,
@@ -102,7 +105,7 @@ export function usePainter({
   const resetPaint = (): void => {
     painterStore.actions = [];
     painterStore.actionIndex = -1;
-    painterStore.currentAction = null;
+    //painterStore.currentAction = null;
     localStorage.removeItem('painterActions');
 
     if (paintCanvas.value) {

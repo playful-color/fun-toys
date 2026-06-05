@@ -3,6 +3,7 @@
     <Toolbar
       v-model:showColorPicker="showColorPicker"
       v-model:isEraser="isEraser"
+      v-model:brushType="brushType"
       v-model:brushSize="brushSize"
       v-model:eraserSize="eraserSize"
       v-model:isPainting="isPainting"
@@ -17,6 +18,7 @@
       ref="canvasManagerRef"
       :characters="characters"
       :is-eraser="isEraser"
+      :brush-type="brushType"
       :brush-size="brushSize"
       :eraser-size="eraserSize"
       :selected-color="colorStore.selectedColor"
@@ -58,6 +60,7 @@ const showColorPicker = ref(false);
 const isEraser = ref(false);
 const brushSize = ref(20);
 const eraserSize = ref(30);
+const brushType = ref<'normal' | 'marker'>('normal');
 
 // -----------------------
 // キャラクター関連

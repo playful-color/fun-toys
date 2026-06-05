@@ -126,10 +126,6 @@ function rgbaString(c: Color): string {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: white;
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
   .color-input {
     width: 100%;
     height: 30px;

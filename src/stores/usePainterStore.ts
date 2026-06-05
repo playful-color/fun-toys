@@ -6,7 +6,6 @@ export const usePainterStore = defineStore('painter', () => {
   const isPainting: Ref<boolean> = ref(false);
   const actions: Ref<PaintAction[]> = ref([]);
   const actionIndex: Ref<number> = ref(-1);
-  const currentAction: Ref<PaintAction | null> = ref(null);
   const MAX_HISTORY_SIZE = 100;
 
   // 描画開始
@@ -80,7 +79,6 @@ export const usePainterStore = defineStore('painter', () => {
     stopPainting,
     actions,
     actionIndex,
-    currentAction,
     addAction,
     undo,
     redo,

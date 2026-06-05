@@ -10,13 +10,25 @@ export interface Point {
   y: number;
 }
 
+export type BrushType = 'normal' | 'marker';
+
+export interface Spark {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  size: number;
+}
+
 export interface BrushAction {
   type: 'brush';
   points: Point[];
-  color: Color | null;
+  color: Color;
   size: number;
   isEraser: boolean;
   startColor?: Color;
+  brushType: BrushType;
 }
 
 export interface BucketAction {
