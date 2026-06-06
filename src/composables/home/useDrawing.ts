@@ -111,20 +111,12 @@ export function useDrawing({
 
     const points = action.points;
     const last = points[points.length - 1];
-    // pointsが増えすぎるのを防ぐ（メモリ対策）
-    const MAX_POINTS = 1000;
 
-    if (points.length > MAX_POINTS) {
-      points.splice(0, points.length - MAX_POINTS);
-    }
-    const steps = last
-      ? Math.min(
-          6,
-          Math.max(2, Math.ceil(Math.hypot(pos.x - last.x, pos.y - last.y) / 2))
-        )
-      : 1;
+    // 移動距離に応じてステップ数を決定（速くても途切れない）
+    const distance = last ? Math.hypot(pos.x - last.x, pos.y - last.y) : 0;
+    const stepSize = radius * 0.5; // 補間点の間隔
+    const steps = last ? Math.ceil(distance / stepSize) : 1;
 
-    // 補間しながら描画＆spark生成
     for (let i = 0; i < steps; i++) {
       const t = last ? i / steps : 1;
       const ix = last ? last.x + (pos.x - last.x) * t : pos.x;
@@ -135,23 +127,15 @@ export function useDrawing({
       ctx.fill();
       points.push({ x: ix, y: iy });
 
+      // marker の spark
       if (!isEraser.value && brushType.value === 'marker') {
-        const isLastStep = i === steps - 1 && last; // 最後の点は出さない
         const spread = baseSize * 0.12;
         const minSparkSize = baseSize < 20 ? 5 : 3;
+        const sparkChance = Math.min(0.08, 0.02 + baseSize * 0.002);
 
-        let sparkChance = Math.min(0.08, 0.02 + baseSize * 0.002);
-        sparkChance = Math.max(0.03, sparkChance);
-        if (baseSize < 20) {
-          sparkChance *= 2;
-        }
-
-        const isValidStep = !isLastStep;
-        const chance = Math.random() < sparkChance;
-
-        if (isValidStep && chance) {
-          const offset = 12;
+        if (Math.random() < sparkChance) {
           const angle = Math.random() * Math.PI * 2;
+          const offset = 12;
 
           sparkEffect.addSpark({
             x: ix + Math.cos(angle) * offset,
@@ -159,7 +143,6 @@ export function useDrawing({
             vx: last
               ? (pos.x - last.x) * 0.15 + (Math.random() - 0.5) * spread
               : (Math.random() - 0.5) * spread,
-
             vy: last
               ? (pos.y - last.y) * 0.15 + (Math.random() - 0.5) * spread
               : (Math.random() - 0.5) * spread,
