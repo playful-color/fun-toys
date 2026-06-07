@@ -1,6 +1,18 @@
+/**
+ * 【スパークパーティクル演出 Composable】
+ * 描画操作（マーカー等）に連動し、星やハートの非永続エフェクトをキャンバス上に動的に描画・管理する。
+ *
+ * NOTE:
+ * - 描画負荷を制御するため、最大パーティクル数（MAX_SPARKS）に制限を設けている。
+ * - `globalCompositeOperation = 'lighter'` による加算合成を使用するため、Canvasのコンテキスト状態の退避（save/restore）が必須。
+ * - 毎フレームの更新ループ内で配列削除（splice）が発生するため、インデックスのズレを防ぐ逆引きループ（後方探索）を採用。
+ *
+ * TODO: パーティクル配列の固定長バッファ化（GC負荷軽減）、描画処理のWeb Worker/OffscreenCanvas化によるUIスレッド解放。
+ */
 import type { Color } from '@/types/painter';
 
-export interface Spark {
+/** パーティクルエフェクト1個分の物理状態・演出属性を表すモデル */
+interface Spark {
   x: number;
   y: number;
   vx: number;
@@ -14,13 +26,13 @@ export interface Spark {
 
 export function useSparkEffect() {
   const sparks: Spark[] = [];
-
-  // ==================================================
-  // spark追加（生成側から呼ばれる）
-  // ==================================================
   const MAX_SPARKS = 200;
 
+  // ==================================================
+  // スパーク追加
+  // ==================================================
   function addSpark(data: Spark) {
+    // 上限を超えたら古いものを削除
     if (sparks.length >= MAX_SPARKS) {
       sparks.shift();
     }
@@ -29,7 +41,7 @@ export function useSparkEffect() {
   }
 
   // ==================================================
-  // 更新 + 描画（毎フレーム呼ばれる）
+  // 更新・描画処理（毎フレーム）
   // ==================================================
   function updateAndRender(ctx: CanvasRenderingContext2D) {
     ctx.save();
@@ -38,21 +50,15 @@ export function useSparkEffect() {
     for (let i = sparks.length - 1; i >= 0; i--) {
       const s = sparks[i];
 
-      // 位置更新
+      // 物理更新（位置・速度・寿命）
       s.x += s.vx;
       s.y += s.vy;
-
-      // 減速（空気抵抗）
       s.vx *= 0.99;
       s.vy *= 0.99;
-
-      // 軽い上昇力（ふわっと浮く感じ）
       s.vy -= 0.01;
-
-      // 寿命減少（ここで消えていく）
       s.life -= 0.01;
 
-      // 寿命切れなら削除
+      // 寿命が切れたら削除
       if (s.life <= 0) {
         sparks.splice(i, 1);
         continue;
@@ -68,9 +74,9 @@ export function useSparkEffect() {
       else drawHeart(ctx, size);
 
       const alpha = Math.pow(s.life, 1.5);
-
       ctx.fillStyle = `rgba(${s.color.r},${s.color.g},${s.color.b},${alpha})`;
       ctx.fill();
+
       ctx.restore();
     }
 
@@ -78,14 +84,14 @@ export function useSparkEffect() {
   }
 
   // ==================================================
-  // 全削除（リセット用）
+  // リセット
   // ==================================================
   function reset() {
     sparks.length = 0;
   }
 
   // ==================================================
-  // sparkが残っているか確認
+  // スパーク存在チェック
   // ==================================================
   function hasSparks() {
     return sparks.length > 0;
@@ -120,6 +126,8 @@ export function useSparkEffect() {
   // ハート形描画
   // ==================================================
   function drawHeart(ctx: CanvasRenderingContext2D, size: number) {
+    const h = size * 0.3;
+
     ctx.beginPath();
     const topCurveHeight = size * 0.3;
 

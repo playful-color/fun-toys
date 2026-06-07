@@ -1,47 +1,53 @@
+/**
+ * 【Canvas描画エンジン Composable】
+ * ブラシ・消しゴム・スパークエフェクトの描画および履歴リプレイを統合したペイントコア。
+ *
+ * NOTE:
+ * - 描画は「確定履歴（Store）」＋「未確定のストローク（currentAction）」の2レイヤー構造。
+ * - `requestAnimationFrame`（フレーム単位の間引き）による負荷制御。モバイルは `cursorPos` で最適化。
+ * - `marker` ブラシのみ、毎フレームクリアされる非永続のスパークエフェクトを生成する。
+ * - スパークの独立アニメーションループは、現在停止制御が不完全（rafId未活用）なので注意。
+ *
+ * TODO: sparkループの確実な停止制御、差分描画による負荷軽減、入力層（イベント処理）と描画層の完全分離。
+ */
 import { ref, Ref } from 'vue';
-import type { BrushAction, PaintAction, Color, Point } from '@/types/painter';
+import type {
+  BrushAction,
+  Color,
+  Point,
+  PainterStore,
+  BrushType,
+} from '@/types/painter';
 import { drawAction } from '@/utils/drawAction';
 import { useSparkEffect } from '@/effects/useSparkEffect';
 
-// ==================================================
-// 外部ストア的な依存（描画状態・色管理など）
-// ==================================================
-interface PainterStoreLike {
-  isPainting: boolean;
-  actions: PaintAction[];
-  actionIndex: number;
-  addAction(action: PaintAction): void;
-}
-
+/** 色選択機能の管理：現在選択されている色と、最近使用したカラー履歴（最大数管理）を制御 */
 interface ColorStore {
   selectedColor: Color;
   recentColors: Color[];
   pushRecentColor(color: Color): void;
 }
 
-interface CursorPosition {
-  x: number;
-  y: number;
-}
-
-// ==================================================
-// useDrawing に渡される依存一覧
-// ==================================================
+/** 描画エンジン（useDrawing）への入力：Canvas状態、ブラシ属性、および外部座標変換API */
 interface UseDrawingProps {
   paintCanvas: Ref<HTMLCanvasElement | null>;
-  lineCanvas?: Ref<HTMLCanvasElement | null>; // バケツ再描画用
+  lineCanvas?: Ref<HTMLCanvasElement | null>; // NOTE: 将来的なバケツ塗り境界・補助レイヤー用の拡張枠（現状未使用）
   isEraser: Ref<boolean>;
-  brushType: Ref<'normal' | 'marker'>;
+  brushType: Ref<BrushType>;
   brushSize: Ref<number>;
   eraserSize: Ref<number>;
   scale: Ref<number>;
   panX: Ref<number>;
   panY: Ref<number>;
   colorStore: ColorStore;
-  painterStore: PainterStoreLike;
-  cursorPos: Ref<CursorPosition>;
+  painterStore: PainterStore;
+  cursorPos: Ref<Point>;
   isMobile: Ref<boolean>;
+
+  // WHY: 座標変換ロジックを外部責務（useCoordinate等）として切り離し、純粋な描画責務に集中させるため
   getEventPos: (e: MouseEvent | TouchEvent) => Point;
+
+  // オプション機能（バケツ塗り）
   bucketFill?: (
     x: number,
     y: number,
@@ -50,15 +56,11 @@ interface UseDrawingProps {
   ) => void;
 }
 
-// ==================================================
-// sparkエフェクト（全ブラシ共通の演出レイヤー）
-// ==================================================
-
+// WHY: 描画とは別レイヤーでパーティクル管理し、再描画時に毎回リセットされる非永続UIとして演出するため
 const sparkEffect = useSparkEffect();
 
 export function useDrawing({
   paintCanvas,
-  lineCanvas,
   isEraser,
   brushType,
   brushSize,
@@ -79,11 +81,13 @@ export function useDrawing({
   const strokeStart = ref<Point | null>(null);
 
   let lastDrawTime = 0;
-  const drawInterval = 16; // 約60fps
+  const drawInterval = 16;
 
-  // ==================================================
-  // ブラシ描画処理
-  // ==================================================
+  let isDrawingFrame = false;
+  let isSparkAnimating = false;
+  let rafId: number | null = null;
+
+  // --- コア描画処理 ----------------------------------
   function paint(pos: Point): void {
     const now = Date.now();
     if (now - lastDrawTime < drawInterval) return;
@@ -97,6 +101,7 @@ export function useDrawing({
 
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const radius = baseSize * 0.3;
+
     const color: Color = isEraser.value
       ? { r: 0, g: 0, b: 0, a: 1 }
       : { ...colorStore.selectedColor };
@@ -104,6 +109,7 @@ export function useDrawing({
     ctx.globalCompositeOperation = isEraser.value
       ? 'destination-out'
       : 'source-over';
+
     ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},${color.a})`;
     ctx.globalAlpha = isEraser.value ? 1 : color.a;
     ctx.lineCap = 'round';
@@ -112,22 +118,30 @@ export function useDrawing({
     const points = action.points;
     const last = points[points.length - 1];
 
-    // 移動距離に応じてステップ数を決定（速くても途切れない）
     const distance = last ? Math.hypot(pos.x - last.x, pos.y - last.y) : 0;
-    const stepSize = radius * 0.5; // 補間点の間隔
+
+    const stepSize = radius * 0.5;
     const steps = last ? Math.ceil(distance / stepSize) : 1;
 
     for (let i = 0; i < steps; i++) {
       const t = last ? i / steps : 1;
+
       const ix = last ? last.x + (pos.x - last.x) * t : pos.x;
       const iy = last ? last.y + (pos.y - last.y) * t : pos.y;
+
+      if (last) {
+        const dx = ix - last.x;
+        const dy = iy - last.y;
+        if (Math.hypot(dx, dy) < 2) continue;
+      }
 
       ctx.beginPath();
       ctx.arc(ix, iy, radius, 0, Math.PI * 2);
       ctx.fill();
+
       points.push({ x: ix, y: iy });
 
-      // marker の spark
+      // WHY: marker時のみ粒子エフェクトを発生させる
       if (!isEraser.value && brushType.value === 'marker') {
         const spread = baseSize * 0.12;
         const minSparkSize = baseSize < 20 ? 5 : 3;
@@ -155,6 +169,7 @@ export function useDrawing({
             type: Math.random() < 0.5 ? 'star' : 'heart',
             rot: Math.random() * Math.PI * 2,
           });
+
           startSparkAnimation();
         }
       }
@@ -165,39 +180,36 @@ export function useDrawing({
     action.color = color;
   }
 
-  // ==================================================
-  // 全体再描画（履歴＋現在描画＋spark）
-  // ==================================================
-
+  // --- 再描画（リプレイ方式） -------------------------
   function redrawPaint() {
     const canvas = paintCanvas.value;
     if (!canvas) return;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     ctx.setTransform(scale.value, 0, 0, scale.value, panX.value, panY.value);
 
     painterStore.actions.slice(0, painterStore.actionIndex + 1).forEach((a) => {
       drawAction(ctx, a, bucketFill);
     });
 
-    // 現在描画中のストローク
     if (currentAction.value) {
       drawAction(ctx, currentAction.value, bucketFill);
     }
-    // markerだけキラキラ
+
     sparkEffect.updateAndRender(ctx);
   }
 
-  // ==================================================
-  // 描画開始
-  // ==================================================
+  // --- 描画開始 --------------------------------------
   function startDrawing(e: MouseEvent | TouchEvent) {
     if (isDrawing.value || (e instanceof MouseEvent && e.buttons !== 1)) return;
 
     const pos = getEventPos(e);
+
     strokeStart.value = pos;
     isDrawing.value = true;
     isPainting.value = true;
@@ -205,7 +217,9 @@ export function useDrawing({
 
     sparkEffect.reset();
 
-    if (!isEraser.value) colorStore.pushRecentColor(colorStore.selectedColor);
+    if (!isEraser.value) {
+      colorStore.pushRecentColor(colorStore.selectedColor);
+    }
 
     currentAction.value = {
       type: 'brush',
@@ -219,13 +233,28 @@ export function useDrawing({
     };
   }
 
-  let isDrawingFrame = false;
-  let isSparkAnimating = false;
-  let rafId: number | null = null;
+  // --- 描画ループ ------------------------------------
+  function draw(e: MouseEvent | TouchEvent) {
+    if (!isDrawing.value) return;
 
-  // ==================================================
-  // spark専用アニメーションループ
-  // ==================================================
+    if (!isDrawingFrame) {
+      isDrawingFrame = true;
+
+      requestAnimationFrame(() => {
+        const pos: Point =
+          isMobile.value && 'touches' in e
+            ? { ...cursorPos.value }
+            : getEventPos(e);
+
+        paint(pos);
+        redrawPaint();
+
+        isDrawingFrame = false;
+      });
+    }
+  }
+
+  // --- sparkアニメーション ----------------------------
   function startSparkAnimation() {
     if (isSparkAnimating) return;
 
@@ -245,7 +274,6 @@ export function useDrawing({
   }
 
   function stopSparkAnimation(): void {
-    // requestAnimationFrameを強制停止
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;
@@ -254,29 +282,10 @@ export function useDrawing({
     isSparkAnimating = false;
   }
 
-  // ==================================================
-  // 描画中（pointer move）
-  // ==================================================
-  function draw(e: MouseEvent | TouchEvent) {
-    if (!isDrawing.value) return;
-
-    if (!isDrawingFrame) {
-      isDrawingFrame = true;
-      requestAnimationFrame(() => {
-        const pos: Point =
-          isMobile.value && 'touches' in e
-            ? { ...cursorPos.value }
-            : getEventPos(e);
-
-        paint(pos);
-        redrawPaint();
-        isDrawingFrame = false;
-      });
-    }
-  }
-
+  // --- 描画終了 --------------------------------------
   function stopDrawing() {
     stopSparkAnimation();
+
     if (!isDrawing.value) return;
 
     isDrawing.value = false;
@@ -293,6 +302,7 @@ export function useDrawing({
       ...currentAction.value,
       points: [...currentAction.value.points],
     });
+
     currentAction.value = null;
 
     redrawPaint();

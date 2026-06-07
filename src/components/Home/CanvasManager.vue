@@ -27,15 +27,21 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  computed,
-  watch,
-  onMounted,
-  onUnmounted,
-  nextTick,
-  type Ref,
-} from 'vue';
+/**
+ * 【ペインターCanvas総合管理コンポーネント】
+ * 複数レイヤーのCanvas（キャラ/描画/演出）、ズーム・パン、ジェスチャー、キャラクター画像、
+ * および描画エンジン（usePainter）のライフサイクルを一元管理するアプリケーションの心臓部。
+ *
+ * NOTE:
+ * - 描画処理（usePainter）とジェスチャー制御（useTouchGestures）が相互に依存し合うハブ構造。
+ * - `onMounted` 時に演出用の独立した `requestAnimationFrame` アニメーションループを起動する。
+ * - PC/SP切り替え時に `toDataURL` で既存のペイント状態を一度退避して復元する特殊なリサイズ・デバイス適合ロジックを搭載。
+ * - イベントリスナーの解除漏れによるメモリリークを防ぐため、ライフサイクル管理を徹底する。
+ *
+ * TODO: `onUnmounted` での `resize` 系のグローバルイベントリスナー解除、Canvas保存ロジックの外部共通関数化。
+ */
+import { ref, computed, onMounted, onUnmounted, nextTick, type Ref } from 'vue';
+import type { Color, Character, BrushType } from '@/types/painter';
 import { useBrushCursor } from '@/composables/home/useBrushCursor';
 import { usePainter } from '@/composables/home/usePainter';
 import { useCanvas } from '@/composables/home/useCanvas';
@@ -43,37 +49,17 @@ import { useCharacterRenderer } from '@/composables/home/useCharacterRenderer';
 import { useCharacterImage } from '@/composables/home/useCharacterImage';
 import { useTouchGestures } from '@/composables/home/useTouchGestures';
 import { useSparkEffect } from '@/effects/useSparkEffect';
-import { useBucket } from '@/composables/home/useBucket';
-const sparkEffect = useSparkEffect();
-// ==================================================
-// 型定義
-// ==================================================
-interface Character {
-  img: HTMLImageElement;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
-interface Color {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
-
-// ==================================================
-// Props & Emits
-// ==================================================
-const props = defineProps<{
+/** 親コンポーネントや共通Storeから受け取るペインターの各種属性パラメータ */
+interface Props {
   characters: Character[];
   isEraser: boolean;
   brushSize: number;
   eraserSize: number;
   selectedColor: Color;
-  brushType: 'normal' | 'marker';
-}>();
+  brushType: BrushType;
+}
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
   (e: 'update:isPainting', value: boolean): void;
@@ -83,9 +69,8 @@ const emit = defineEmits<{
   (e: 'update:showColorPicker', val: boolean): void;
 }>();
 
-// ==================================================
-// Canvas & 状態
-// ==================================================
+const sparkEffect = useSparkEffect();
+
 const lineCanvas = ref<HTMLCanvasElement | null>(null);
 const paintCanvas = ref<HTMLCanvasElement | null>(null);
 const canvasWrapper = ref<HTMLDivElement | null>(null);
@@ -97,36 +82,12 @@ const panX = ref(0);
 const panY = ref(0);
 const isMobile = ref(window.innerWidth <= 768);
 const isPinching = ref(false);
-const canvasReady = ref(false); // 描画完了フラグ
+const canvasReady = ref(false);
 
-// ==================================================
-// キャラクター画像管理
-// ==================================================
 const { loadRandomCharacterOnce, changeRandomCharacter } =
   useCharacterImage(isMobile);
 
-function changeCharacterFromButton(): void {
-  if (isPainting?.value) return;
-
-  canvasReady.value = false;
-  changeRandomCharacter({
-    resetPaint,
-    characters: props.characters,
-    onAfterChange: async () => {
-      await nextTick();
-      handleResize();
-      drawAllCharacters();
-      updateBrushCursor();
-      canvasReady.value = true;
-    },
-  });
-}
-
-defineExpose({ changeRandomCharacter: changeCharacterFromButton });
-
-// ==================================================
-// キャラクター描画
-// ==================================================
+// --- 描画・操作系子モジュール（Composable）の展開 -----
 const { initCtx, centerAllCharacters, drawAllCharacters } =
   useCharacterRenderer({
     characters: props.characters,
@@ -136,9 +97,6 @@ const { initCtx, centerAllCharacters, drawAllCharacters } =
     panY,
   });
 
-// ==================================================
-// ブラシカーソル
-// ==================================================
 const {
   brushCursor,
   cursorPos,
@@ -163,9 +121,6 @@ const {
   scale,
 });
 
-// ==================================================
-// Canvas 操作
-// ==================================================
 const { resizeCanvasToWrapper, clampPan } = useCanvas(
   props,
   canvasWrapper,
@@ -176,9 +131,7 @@ const { resizeCanvasToWrapper, clampPan } = useCanvas(
   panY
 );
 
-// ==================================================
-// Painter関連: undefined に統一
-// ==================================================
+//usePainter から動的に結合する命令的 API 群
 let startDrawing: ((e: MouseEvent | TouchEvent) => void) | undefined;
 let draw: ((e: MouseEvent | TouchEvent) => void) | undefined;
 let stopDrawing: (() => void) | undefined;
@@ -188,25 +141,24 @@ let redo: (() => void) | undefined;
 let resetPaint: (() => void) | undefined;
 
 let lineCtx: CanvasRenderingContext2D | null = null;
-
-// ==================================================
-// リサイズ
-// ==================================================
 let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
-function handleResize(): void {
+// --- リサイズ・デバイス最適化ロジック ----------------
+const handleResize = (): void => {
   resizeCanvasToWrapper();
   centerAllCharacters();
   drawAllCharacters();
   updateBrushCursor();
-}
+};
 
-function switchDevice(): void {
+const switchDevice = (): void => {
   if (!paintCanvas.value) return;
 
   canvasReady.value = false;
 
+  // WHY: デバイス変更（リサイズ）でCanvasが初期化されるため、現在のペイント内容を一度画像（DataURL）としてメモリに退避させる
   const paintData = paintCanvas.value.toDataURL();
+
   resizeCanvasToWrapper();
 
   changeRandomCharacter({
@@ -214,9 +166,11 @@ function switchDevice(): void {
     characters: props.characters,
     onAfterChange: async () => {
       await nextTick();
+
       handleResize();
       drawAllCharacters();
       updateBrushCursor();
+
       canvasReady.value = true;
     },
   });
@@ -225,34 +179,56 @@ function switchDevice(): void {
 
   const img = new Image();
   img.src = paintData;
+
   img.onload = () => {
     if (!paintCanvas.value) return;
+
     const ctx = paintCanvas.value.getContext('2d');
     if (!ctx) return;
 
+    // WHY: 退避させていたペイント画像を、新しくリサイズされたクリーンなCanvasへ等倍座標で完全に描き戻して復元するため
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
     ctx.drawImage(img, 0, 0, paintCanvas.value.width, paintCanvas.value.height);
     canvasReady.value = true;
   };
-}
+};
 
-function handleResizeDevice(): void {
+const handleResizeDevice = (): void => {
   const wasMobile = isMobile.value;
   isMobile.value = window.innerWidth <= 768;
 
   if (wasMobile !== isMobile.value) {
     switchDevice();
   }
-}
+};
+
+const changeCharacterFromButton = (): void => {
+  if (isPainting?.value) return;
+
+  canvasReady.value = false;
+
+  changeRandomCharacter({
+    resetPaint,
+    characters: props.characters,
+    onAfterChange: async () => {
+      await nextTick();
+
+      handleResize();
+      drawAllCharacters();
+      updateBrushCursor();
+      canvasReady.value = true;
+    },
+  });
+};
+
+defineExpose({ changeRandomCharacter: changeCharacterFromButton });
 
 window.addEventListener('resize', handleResizeDevice);
 window.addEventListener('orientationchange', handleResizeDevice);
 
-// ==================================================
-// 保存
-// ==================================================
-function saveImage(): void {
+// --- 画像出力（ダウンロード） -----------------------
+const saveImage = (): void => {
   if (!paintCanvas.value || !lineCanvas.value) return;
 
   const width = lineCanvas.value.width;
@@ -267,6 +243,7 @@ function saveImage(): void {
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
+
   ctx.drawImage(paintCanvas.value, 0, 0, width, height);
   ctx.drawImage(lineCanvas.value, 0, 0, width, height);
 
@@ -274,11 +251,9 @@ function saveImage(): void {
   link.download = 'painting.png';
   link.href = out.toDataURL('image/png');
   link.click();
-}
+};
 
-// ==================================================
-// ライフサイクル
-// ==================================================
+// --- アプリケーション初期化・ライフサイクル -----------
 onMounted(() => {
   if (!lineCanvas.value) return;
 
@@ -288,6 +263,7 @@ onMounted(() => {
   initCtx();
   handleResize();
 
+  // --- スパークエフェクト専用駆動ループ ---
   const canvas = sparkCanvas.value;
   if (!canvas) return;
 
@@ -304,6 +280,7 @@ onMounted(() => {
 
     sparkEffect.updateAndRender(ctx);
 
+    // WHY: エフェクトが画面に残っている間だけループ、すべてのパーティクルが消滅したら自動でループを止めてCPU/GPU負荷をゼロにする最適化
     if (sparkEffect.hasSparks()) {
       animationId = requestAnimationFrame(loop);
     } else {
@@ -375,9 +352,9 @@ onMounted(() => {
   emit('updateUndoRedo', { undo, redo });
   emit('updateSaveImage', saveImage);
 
-  // 初回ランダムキャラクター
   const img = new Image();
   img.src = loadRandomCharacterOnce();
+
   img.onload = () => {
     props.characters.splice(0, props.characters.length, {
       img,
@@ -394,6 +371,7 @@ onMounted(() => {
   };
 });
 
+// --- クリーンアップ --------------------------------
 onUnmounted(() => {
   window.removeEventListener('resize', handleResizeDevice);
   window.removeEventListener('orientationchange', handleResizeDevice);

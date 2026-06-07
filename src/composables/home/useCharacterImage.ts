@@ -1,14 +1,19 @@
+/**
+ * 【キャラクター画像管理 Composable】
+ * PC/SP別の画像セットのランダム選択、localStorageによる永続化、端末適合を管理。
+ *
+ * NOTE:
+ * - キャラは単一（`characters[0]`）前提の設計（マルチキャラ未対応）。
+ * - `img.onload`（ロード完了）をトリガーにCanvas側の再描画と同期する。
+ * - `localStorage` 依存のため、そのままではSSR（Nuxt等）環境で動作しないので注意。
+ *
+ * TODO: ランダム切替のPromise化（ロード完了の外部制御）、画像プリロードの導入、Map化による高速化。
+ */
 import { ref, Ref } from 'vue';
+import type { Character } from '@/types/painter';
 import { pcImages, spImages } from '@/data/characterImages';
 
-export interface Character {
-  img: HTMLImageElement;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
+/** キャラクター変更に連動する処理（描画リセットや後続の同期コールバック）の制御オプション */
 interface ChangeRandomCharacterOptions {
   resetPaint?: () => void;
   characters?: Character[];
@@ -17,16 +22,15 @@ interface ChangeRandomCharacterOptions {
 
 export function useCharacterImage(isMobile: Ref<boolean>) {
   const currentImage: Ref<string | null> = ref(null);
-
-  // localStorageキー取得
   const getStorageKey = (): string =>
     isMobile.value ? 'currentCharacterSrc_sp' : 'currentCharacterSrc_pc';
 
-  // 前回と被らないランダム画像
+  // --- ランダムキャラクター取得（重複回避） ------------
   const getRandomCharacterSrc = (): string => {
     const images = isMobile.value ? spImages : pcImages;
     const key = getStorageKey();
     const savedSrc = localStorage.getItem(key);
+
     let newSrc: string;
 
     do {
@@ -37,7 +41,7 @@ export function useCharacterImage(isMobile: Ref<boolean>) {
     return newSrc;
   };
 
-  // 初回のみランダム取得
+  // --- 初回キャラクター読み込み（永続化優先） -----------
   const loadRandomCharacterOnce = (): string => {
     const images = isMobile.value ? spImages : pcImages;
     const key = getStorageKey();
@@ -50,12 +54,14 @@ export function useCharacterImage(isMobile: Ref<boolean>) {
     return randomSrc;
   };
 
-  //キャラクター切り替え
+  // --- キャラクター変更 -------------------------------
   const changeRandomCharacter = (
     options: ChangeRandomCharacterOptions = {}
   ): void => {
     const { resetPaint, characters, onAfterChange } = options;
+
     const newSrc = getRandomCharacterSrc();
+
     const img = new Image();
     img.src = newSrc;
 
@@ -78,7 +84,7 @@ export function useCharacterImage(isMobile: Ref<boolean>) {
     };
   };
 
-  // 端末とキャラ画像の不一致を防ぐ
+  // --- 端末とキャラ整合性チェック ----------------------
   const ensureCharacterMatchesDevice = (
     characters: Character[] | undefined,
     changeFn: (options?: ChangeRandomCharacterOptions) => void
@@ -86,6 +92,7 @@ export function useCharacterImage(isMobile: Ref<boolean>) {
     if (!characters?.length) return;
 
     const src = characters[0].img.src;
+
     const currentType = pcImages.includes(src)
       ? 'pc'
       : spImages.includes(src)
@@ -99,11 +106,12 @@ export function useCharacterImage(isMobile: Ref<boolean>) {
     }
   };
 
-  // 現在の画像種別取得
+  // --- 現在キャラクター種別取得 -----------------------
   const getCurrentImageType = (
     characters: Character[] | undefined
   ): 'pc' | 'sp' | null => {
     if (!characters?.length) return null;
+
     const src = characters[0].img.src;
 
     if (pcImages.includes(src)) return 'pc';

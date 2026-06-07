@@ -31,43 +31,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
+import type { Character, BrushType } from '@/types/painter';
 import CanvasManager from '@/components/Home/CanvasManager.vue';
 import Toolbar from '@/components/Home/Toolbar.vue';
 import { useColorStore } from '@/stores/useColorStore';
 
-// -----------------------
-// 型定義
-// -----------------------
-interface Character {
-  img: HTMLImageElement;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-// -----------------------
+// ==================================================
 // ストア
-// -----------------------
+// ==================================================
 const colorStore = useColorStore();
 
-// -----------------------
-// 描画関連の状態
-// -----------------------
+// ==================================================
+// 描画状態
+// ==================================================
 const isPainting = ref(false);
 const showColorPicker = ref(false);
 const isEraser = ref(false);
 const brushSize = ref(20);
 const eraserSize = ref(30);
-const brushType = ref<'normal' | 'marker'>('normal');
+const brushType = ref<BrushType>('normal');
 
-// -----------------------
-// キャラクター関連
-// -----------------------
+// ==================================================
+// キャラクター
+// ==================================================
 const characters = ref<Character[]>([]);
 
-// 例: API等のデータをCharacter型に変換
+// APIデータ → Character変換
 const apiData = [
   { id: 1, name: 'Alice', imageUrl: 'https://placekitten.com/200/200' },
   { id: 2, name: 'Bob', imageUrl: 'https://placekitten.com/300/300' },
@@ -76,6 +66,7 @@ const apiData = [
 characters.value = apiData.map((d) => {
   const img = new Image();
   img.src = d.imageUrl;
+
   return {
     img,
     x: 0,
@@ -85,9 +76,9 @@ characters.value = apiData.map((d) => {
   };
 });
 
-// -----------------------
+// ==================================================
 // Undo / Redo / 保存
-// -----------------------
+// ==================================================
 const undoFn = ref<() => void>(() => {});
 const redoFn = ref<() => void>(() => {});
 const saveImageFn = ref<() => void>(() => {});
@@ -109,9 +100,9 @@ function setSaveImage(fn: () => void) {
   saveImageFn.value = fn;
 }
 
-// -----------------------
-// CanvasManager の参照
-// -----------------------
+// ==================================================
+// CanvasManager
+// ==================================================
 const canvasManagerRef = ref<InstanceType<typeof CanvasManager> | null>(null);
 
 function changeRandomCharacter() {

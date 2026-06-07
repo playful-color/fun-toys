@@ -138,36 +138,22 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import type { BrushType } from '@/types/painter';
 import ColorPicker from '/src/components/Home/ColorPicker.vue';
 import { useColorStore } from '@/stores/useColorStore';
 import { usePainterStore } from '@/stores/usePainterStore';
 import { storeToRefs } from 'pinia';
 
-// ==================================================
-// ストア
-// ==================================================
 const painterStore = usePainterStore();
 const colorStore = useColorStore();
 const { selectedColor } = storeToRefs(colorStore);
 
-// ==================================================
-// Props & Emits
-// ==================================================
-interface Color {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
-const brushIcon = computed(() => {
-  return props.brushType === 'marker' ? 'wand-magic-sparkles' : 'paintbrush';
-});
 const props = defineProps<{
   isPainting: boolean;
   showColorPicker: boolean;
   isEraser: boolean;
   brushSize: number;
-  brushType: 'normal' | 'marker';
+  brushType: BrushType;
   eraserSize: number;
   undo: () => void;
   redo: () => void;
@@ -176,52 +162,52 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:brushSize', val: number): void;
-  (e: 'update:brushType', val: 'normal' | 'marker'): void;
+  (e: 'update:brushType', val: BrushType): void;
   (e: 'update:eraserSize', val: number): void;
   (e: 'update:isEraser', val: boolean): void;
   (e: 'update:showColorPicker', val: boolean): void;
   (e: 'randomCharacter'): void;
 }>();
 
-// ==================================================
-// カラーピッカー表示切替
-// ==================================================
+// --- ブラシ表示状態 --------------------------------
+const brushIcon = computed(() =>
+  props.brushType === 'marker' ? 'wand-magic-sparkles' : 'paintbrush'
+);
+
+const brushIconColor = computed(() => {
+  const c = colorStore.selectedColor;
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
+});
+
+// --- カラーピッカー制御 -----------------------------
 function onBrushClick() {
   if (localIsEraser.value) localIsEraser.value = false;
 
   const next = !props.showColorPicker;
   emit('update:showColorPicker', next);
 
-  if (next && brushBtn.value) updatePickerPosition(brushBtn.value);
+  if (next && brushBtn.value) {
+    updatePickerPosition(brushBtn.value);
+  }
 }
 
-// ==================================================
-// ローカル状態
-// ==================================================
-const localIsEraser = computed<boolean>({
+// --- 双方向バインド状態 -----------------------------
+const localIsEraser = computed({
   get: () => props.isEraser,
   set: (val) => emit('update:isEraser', val),
 });
 
-const localBrushSize = computed<number>({
+const localBrushSize = computed({
   get: () => props.brushSize,
   set: (val) => emit('update:brushSize', val),
 });
 
-const localEraserSize = computed<number>({
+const localEraserSize = computed({
   get: () => props.eraserSize,
   set: (val) => emit('update:eraserSize', val),
 });
 
-// 現在選択中の色をRGBA文字列で返す
-const brushIconColor = computed<string>(() => {
-  const c = colorStore.selectedColor as Color;
-  return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
-});
-
-// ==================================================
-// カラーピッカー閉じる監視
-// ==================================================
+// --- カラーピッカー自動クローズ ----------------------
 watch(
   () => painterStore.isPainting,
   (val) => {
@@ -236,17 +222,12 @@ watch(
   }
 );
 
-// ==================================================
-// DOM 参照
-// ==================================================
 const brushBtn = ref<HTMLElement | null>(null);
 const toolbar = ref<HTMLElement | null>(null);
 const canvasEl = ref<HTMLElement | null>(null);
 
-// ==================================================
-// モバイル判定
-// ==================================================
-const isMobile = ref<boolean>(window.innerWidth <= 768);
+const isMobile = ref(window.innerWidth <= 768);
+
 const onResize = () => {
   isMobile.value = window.innerWidth <= 768;
   updateToolbarPosition();
@@ -254,40 +235,37 @@ const onResize = () => {
 
 onMounted(() => {
   window.addEventListener('resize', onResize);
+  window.addEventListener('resize', updateToolbarPosition);
   updateToolbarPosition();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize);
+  window.removeEventListener('resize', updateToolbarPosition);
 });
 
-// ==================================================
-// カラーピッカー位置調整
-// ==================================================
+// --- カラーピッカー位置 -----------------------------
 const pickerStyle = ref<Record<string, string>>({});
 
 const updatePickerPosition = (btn: HTMLElement) => {
   const rect = btn.getBoundingClientRect();
-  if (isMobile.value) {
-    pickerStyle.value = {
-      top: `${rect.top}px`,
-      left: `${rect.right + 8}px`,
-      position: 'fixed',
-      zIndex: '1000',
-    };
-  } else {
-    pickerStyle.value = {
-      top: `${rect.bottom + 8}px`,
-      left: `${rect.left}px`,
-      position: 'fixed',
-      zIndex: '1000',
-    };
-  }
+
+  pickerStyle.value = isMobile.value
+    ? {
+        top: `${rect.top}px`,
+        left: `${rect.right + 8}px`,
+        position: 'fixed',
+        zIndex: '1000',
+      }
+    : {
+        top: `${rect.bottom + 8}px`,
+        left: `${rect.left}px`,
+        position: 'fixed',
+        zIndex: '1000',
+      };
 };
 
-// ==================================================
-// ブラシ・消しゴムサイズ変更
-// ==================================================
+// --- サイズ変更 ------------------------------------
 function changeSize(delta: number) {
   if (localIsEraser.value) {
     localEraserSize.value = Math.min(
@@ -302,24 +280,15 @@ function changeSize(delta: number) {
   }
 }
 
-// ==================================================
-// ツールバー位置調整
-// ==================================================
+// --- ツールバー位置 ---------------------------------
 const updateToolbarPosition = () => {
   if (!toolbar.value || !canvasEl.value) return;
+
   const rect = canvasEl.value.getBoundingClientRect();
+
   toolbar.value.style.top = `${rect.top}px`;
   toolbar.value.style.left = `${rect.left}px`;
 };
-
-onMounted(() => {
-  updateToolbarPosition();
-  window.addEventListener('resize', updateToolbarPosition);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateToolbarPosition);
-});
 </script>
 
 <style lang="scss" scoped>

@@ -1,18 +1,25 @@
+/**
+ * 【ブラシカーソル制御 Composable】
+ * PC（CSS cursorの動的生成）とモバイル（DOM擬似カーソル）の挙動を統合し、
+ * pan / scale を考慮した座標系でカーソル表示を同期するモジュール。
+ *
+ * NOTE:
+ * - PCは色・サイズ変更時に canvas.toDataURL() でカーソル画像を再生成する（キャッシュなし）。
+ * - モバイルはタッチ位置（1本指）に追従。座標補正ロジックに環境差（iOS/Android）のリスクあり。
+ * - 座標計算は scale / pan を二重管理（計算）しているため表示がズレるリスクあり。
+ *
+ * TODO:
+ * - キャッシュ機構の導入、または `toDataURL` 依存の廃止によるパフォーマンス改善
+ * - `canvasRect` のバリデーション強化、および座標補正の環境差の検証・統一
+ * - `scale / pan` の二重管理の解消（座標系の一元化）と計算負荷の削減
+ */
 import { ref, watch, computed, Ref } from 'vue';
+import type { Color, Point } from '@/types/painter';
 import type { CSSProperties } from 'vue';
 
-interface Color {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
+type Position = Point;
 
-interface Position {
-  x: number;
-  y: number;
-}
-
+/** Canvasの表示領域情報：タッチ座標やカーソル位置計算の基準として使用 */
 interface CanvasRect {
   left: number;
   top: number;
@@ -26,7 +33,6 @@ export function useBrushCursor({
   eraserSize,
   selectedColor,
   isMobile,
-  canvasRect,
   panX,
   panY,
   scale,
@@ -47,22 +53,20 @@ export function useBrushCursor({
   const cursorPos = ref<Position>({ x: 0, y: 0 });
   const cursorVisible = ref<boolean>(false);
 
-  // ==================================================
-  // PCカーソル
-  // ==================================================
-
-  // PC用のカスタム円形カーソルを作成する関数
+  // --- PCカーソル生成 ---------------------------------
   function createCircleCursor(
     size: number,
     options: { color?: string; dashed?: boolean } = {}
   ): string {
     const { color = 'rgba(0,0,0,0.6)', dashed = false } = options;
+
     const radius = size * 0.3;
     const diameter = radius * 2;
 
     const canvas = document.createElement('canvas');
     canvas.width = diameter;
     canvas.height = diameter;
+
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
@@ -77,11 +81,7 @@ export function useBrushCursor({
     return `url(${canvas.toDataURL()}) ${radius} ${radius}, auto`;
   }
 
-  // ==================================================
-  // スマホカーソル
-  // ==================================================
-
-  // モバイルデバイス上でタッチイベントに基づいてカーソル位置を更新する関数
+  // --- モバイルカーソル更新 ---------------------------
   function updateCursorPosition(
     touchEvent: TouchEvent,
     {
@@ -89,32 +89,37 @@ export function useBrushCursor({
       panX: pan,
       panY: panYVal,
       scale: s,
-    }: { canvasRect: CanvasRect; panX: number; panY: number; scale: number }
+    }: {
+      canvasRect: CanvasRect;
+      panX: number;
+      panY: number;
+      scale: number;
+    }
   ) {
+    // WHY:
+    // - ピンチ中は描画・カーソル更新の競合を防ぐため停止する
     if (!isMobile.value || touchEvent.touches.length === 0 || isPinching?.value)
       return;
 
-    rect = rect || { left: 0, top: 0, width: 0, height: 0 };
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const brushRadius = baseSize * 0.3;
 
-    // ---------------------------
-    // 動的オフセット計算
     let offsetY = -Math.max(brushRadius * 2, 25);
 
-    // ズームに応じてオフセットを調整（小さいスケールなら少し下げる）
+    // WHY:
+    // - ズーム倍率による視覚ズレを補正するためスケールを反映
     offsetY *= Math.max(0.5, s);
 
-    // 画面端対策
     const clientY = touchEvent.touches[0].clientY;
     const screenHeight = window.innerHeight;
-    if (clientY + offsetY < 0) {
-      offsetY = -clientY + 10;
-    }
-    if (clientY + offsetY > screenHeight) {
-      offsetY = screenHeight - clientY - 10;
-    }
 
+    // WHY:
+    // - 画面外へのカーソル描画を防ぐUX補正
+    if (clientY + offsetY < 0) offsetY = -clientY + 10;
+    if (clientY + offsetY > screenHeight) offsetY = screenHeight - clientY - 10;
+
+    // WHY:
+    // - Canvas座標系をワールド座標へ変換（pan / scale補正）
     cursorPos.value = {
       x: (touchEvent.touches[0].clientX - rect.left - pan) / s,
       y: (touchEvent.touches[0].clientY - rect.top - panYVal) / s + offsetY / s,
@@ -123,23 +128,24 @@ export function useBrushCursor({
     cursorVisible.value = true;
   }
 
-  // モバイルでのカーソルのスタイルを返す計算プロパティ
+  // --- DOMカーソルStyle ------------------------------
   const cursorStyle = computed<CSSProperties>(() => {
     const baseSize = isEraser.value ? eraserSize.value : brushSize.value;
     const size = baseSize * 0.6;
+
     const borderWidth = 0.2;
 
     const color = isEraser.value
       ? 'rgba(80,80,80,0.8)'
       : `rgba(${selectedColor.value.r},${selectedColor.value.g},${selectedColor.value.b},${selectedColor.value.a})`;
 
-    const dashedBorder = isEraser.value
+    const border = isEraser.value
       ? `${borderWidth}px dashed ${color}`
       : `${borderWidth}px solid ${color}`;
 
-    const doubleDashedBorder = isEraser.value
+    const shadow = isEraser.value
       ? `0 0 0 ${borderWidth * 1.5}px rgba(0,0,0,0.5)`
-      : `0 0 0 ${borderWidth * 1}px rgba(0,0,0,0.5)`;
+      : `0 0 0 ${borderWidth}px rgba(0,0,0,0.5)`;
 
     return {
       position: 'absolute',
@@ -147,8 +153,8 @@ export function useBrushCursor({
       top: `${cursorPos.value.y * scale.value + panY.value}px`,
       width: `${size}px`,
       height: `${size}px`,
-      border: dashedBorder,
-      boxShadow: doubleDashedBorder,
+      border,
+      boxShadow: shadow,
       borderRadius: '50%',
       pointerEvents: 'none',
       transform: 'translate(-50%, -50%)',
@@ -156,33 +162,27 @@ export function useBrushCursor({
     };
   });
 
-  // ==================================================
-  // 共通
-  // ==================================================
-
-  // 現在の設定（ブラシ/消しゴムのサイズや色）に基づいてブラシカーソルを更新する関数
+  // --- PCカーソル更新 ---------------------------------
   function updateBrushCursor() {
     const size = isEraser.value ? eraserSize.value : brushSize.value;
+    const { r, g, b, a } = selectedColor.value;
 
-    if (!isEraser.value) {
-      const { r, g, b, a } = selectedColor.value;
-      brushCursor.value = createCircleCursor(size, {
-        color: `rgba(${r},${g},${b},${a})`,
-      });
-    } else {
-      const alpha = 0.8;
-      brushCursor.value = createCircleCursor(size, {
-        color: `rgba(80,80,80,${alpha})`,
-        dashed: true,
-      });
-    }
+    // WHY:
+    // - ブラシ状態変更時のみカーソルを再生成する（毎フレーム生成を防ぐ）
+    brushCursor.value = createCircleCursor(size, {
+      color: isEraser.value
+        ? 'rgba(80,80,80,0.8)'
+        : `rgba(${r},${g},${b},${a})`,
+      dashed: isEraser.value,
+    });
   }
 
-  // カーソルを非表示にする
+  // --- カーソル非表示 ---------------------------------
   function hideCursor() {
     cursorVisible.value = false;
   }
 
+  // --- 状態監視 --------------------------------------
   watch([isEraser, brushSize, eraserSize, selectedColor], updateBrushCursor, {
     immediate: true,
   });
