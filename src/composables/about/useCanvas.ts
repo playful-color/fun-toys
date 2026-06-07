@@ -1,38 +1,23 @@
 import { ref, Ref, onMounted } from 'vue';
 import { BALL_SIZE } from '@/config/balls';
-import type { Ball } from '@/composables/about/useBalls';
+import type { Ball, Effect } from '@/types/ballPlay';
 
-// =======================================
-// 型定義
-// =======================================
-
-export interface CanvasEffect {
-  x: number;
-  y: number;
-  radius: number;
-  alpha: number;
-  color: string;
-}
-
+/** 単一ポインター（マウス操作等）のジェスチャー判定用キャッシュ：開始時の座標と時刻を保持 */
 interface PointerState {
   startX: number;
   startY: number;
-  startTime: number;
+  startTime: number; // タップやフリック（投げる速度）を計算するための開始タイムスタンプ
 }
 
-// =======================================
-// Composable
-// =======================================
-
-export const useCanvas = (
+export function useCanvas(
   canvasRef: Ref<HTMLCanvasElement | null>,
   balls: Ref<Ball[]>,
-  effects: Ref<CanvasEffect[]>,
+  effects: Ref<Effect[]>,
   removeBall: (id: number) => void,
   addBall: (x: number, y: number) => void,
   throwBall: (x: number, y: number, dx: number, dy: number) => void,
   playPon: () => void
-) => {
+) {
   const pointerStates = new Map<number, PointerState>();
   const ctx = ref<CanvasRenderingContext2D | null>(null);
 
@@ -140,6 +125,7 @@ export const useCanvas = (
         playPon();
 
         effects.value.push({
+          id: Date.now() + Math.random(),
           x: cx,
           y: cy,
           radius: 10,
@@ -208,4 +194,4 @@ export const useCanvas = (
     drawCanvas,
     resizeCanvas,
   };
-};
+}

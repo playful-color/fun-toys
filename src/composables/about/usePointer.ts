@@ -1,11 +1,6 @@
-import { ref, Ref } from 'vue';
+import { ref } from 'vue';
 
-// =======================================
-// 型定義
-// =======================================
-
-type PointerLikeEvent = PointerEvent | MouseEvent | TouchEvent;
-
+/** マルチタッチ対応の指ごとの個別状態モデル：タップ判定や投げる（Throw）計算に必要な開始時の時間と軌跡を保持 */
 interface TouchState {
   id: number;
   startX: number;
@@ -15,6 +10,7 @@ interface TouchState {
   startTime: number;
 }
 
+/** 入力ジェスチャー制御（usePointerEvent等）への入力パラメータ：各種判定閾値と、検出時の同期コールバックAPI */
 interface UsePointerOptions {
   onTap?: (x: number, y: number) => void;
   onThrow?: (x: number, y: number, dx: number, dy: number) => void;

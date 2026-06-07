@@ -1,8 +1,5 @@
-// =======================================
-// useDemo.ts (TS完全版)
-// =======================================
 import { Ref, ref } from 'vue';
-import { Ball } from '@/composables/about/useBalls';
+import type { Ball } from '@/types/ballPlay';
 import { BALL_SIZE, COLORS } from '@/config/balls';
 
 export function useDemo(messageVisible: Ref<boolean>, balls: Ref<Ball[]>) {

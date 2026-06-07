@@ -34,10 +34,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, Ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useSound } from '@/composables/about/useSound';
 import { useDemo } from '@/composables/about/useDemo';
-import { useBalls, Ball, Effect } from '@/composables/about/useBalls';
+import { useBalls } from '@/composables/about/useBalls';
 import { useCanvas } from '@/composables/about/useCanvas';
 import off from '@/assets/images/about/off.png';
 import on from '@/assets/images/about/on.png';

@@ -1,49 +1,9 @@
 import { ref, Ref } from 'vue';
+import type { Ball, TargetBall, ShotBall, Effect } from '@/types/ballPlay';
 import { usePointer } from '@/composables/about/usePointer';
 import { useDemo } from '@/composables/about/useDemo';
 import { BALL_SIZE, COLORS } from '@/config/balls';
 
-// =======================================
-// 型定義
-// =======================================
-export type BallBase = {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  scale: number;
-  hit: boolean;
-  life?: number;
-  isDemo?: boolean;
-  isFirst?: boolean;
-  exitTime?: number;
-};
-
-export type TargetBall = BallBase & {
-  type: 'target';
-  color: string;
-};
-
-export type ShotBall = BallBase & {
-  type: 'shot';
-  color: string;
-};
-
-export type Ball = TargetBall | ShotBall;
-
-export interface Effect {
-  id: number;
-  x: number;
-  y: number;
-  radius: number;
-  alpha: number;
-  color: string;
-}
-
-// =======================================
-// Composable
-// =======================================
 export function useBalls(
   messageVisible: Ref<boolean>,
   playSound: () => void,
